@@ -1,20 +1,57 @@
+// app/(tabs)/index.tsx
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { colors } from '@/constants/coloresVistaPrincipal';
-import React from 'react';
+import React, { useState } from 'react';
 import { ActivityIndicator, FlatList, ScrollView, StyleSheet } from 'react-native';
-// Importaciones de nuestra lógica y componentes
+
+// Importaciones de juegos
 import { Game } from '@/components/api/steamApi';
 import GameCard from '@/components/Juegos/GameCard';
 import { useTopGames } from '@/hooks/useTopGames';
 
-export default function HomeScreen() {
+// Importaciones de login/registro
+import LoginScreen from '../../components/LoginScreen';
+import RegisterScreen from '../../components/RegisterScreen';
+
+export default function IndexScreen() {
+  // Estado para alternar entre login/registro y home
+  const [currentScreen, setCurrentScreen] = useState<'login' | 'register' | 'home'>('login');
+
   const { games, isLoading, error } = useTopGames();
 
   const handleGamePress = (game: Game) => {
     console.log(`Juego presionado: ${game.name} (ID: ${game.appid})`);
   };
 
+  // Secciones de juegos
+  const trendingGames = games.slice(0, 10);
+  const recommendedGames = games.slice(10, 20);
+
+  const GameSection = ({ title, data }: { title: string; data: Game[] }) => (
+    <ThemedView style={styles.section}>
+      <ThemedText style={styles.sectionTitle}>{title}</ThemedText>
+      <FlatList
+        data={data}
+        horizontal
+        renderItem={({ item }) => <GameCard game={item} onPress={handleGamePress} />}
+        keyExtractor={(item) => item.appid.toString()}
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.horizontalListContainer}
+      />
+    </ThemedView>
+  );
+
+  // Renderizado condicional
+  if (currentScreen === 'login') {
+    return <LoginScreen onRegisterPress={() => setCurrentScreen('register')} />;
+  }
+
+  if (currentScreen === 'register') {
+    return <RegisterScreen onLoginPress={() => setCurrentScreen('login')} />;
+  }
+
+  // Pantalla principal de juegos
   if (isLoading) {
     return (
       <ThemedView style={styles.centered}>
@@ -32,31 +69,12 @@ export default function HomeScreen() {
     );
   }
 
-  // Dividimos la lista de juegos en dos: tendencia y recomendados
-  const trendingGames = games.slice(0, 10);
-  const recommendedGames = games.slice(10, 20);
-
-  // Componente reutilizable para cada sección de juegos
-  const GameSection = ({ title, data }: { title: string; data: Game[] }) => (
-    <ThemedView style={styles.section}>
-      <ThemedText style={styles.sectionTitle}>{title}</ThemedText>
-      <FlatList
-        data={data}
-        horizontal
-        renderItem={({ item }) => <GameCard game={item} onPress={handleGamePress} />}
-        keyExtractor={(item) => item.appid.toString()}
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.horizontalListContainer}
-      />
-    </ThemedView>
-  );
-
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       <GameSection title="Juegos tendencia" data={trendingGames} />
       <GameSection title="Juegos recomendados" data={recommendedGames} />
-      
-      {/* Sección de Noticias (Placeholder) */}
+
+      {/* Sección de Noticias */}
       <ThemedView style={styles.section}>
         <ThemedText style={styles.sectionTitle}>Noticias de videojuegos (AD)</ThemedText>
         <ThemedView style={styles.adPlaceholder}>
@@ -75,8 +93,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 20,
     paddingTop: 15,
-    
-    
   },
   centered: {
     flex: 1,
@@ -90,7 +106,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   errorText: {
-    color: colors.primaryAccent, // Rojo intenso
+    color: colors.primaryAccent,
     fontSize: 16,
     textAlign: 'center',
     fontWeight: 'bold',
@@ -103,7 +119,7 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: 'bold',
     fontFamily: 'Roboto',
-    color: colors.secondaryAccent, // Amarillo vibrante
+    color: colors.secondaryAccent,
     marginLeft: 16,
     marginBottom: 12,
     textTransform: 'uppercase',
@@ -120,11 +136,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: colors.primaryAccent, // Rojo
+    borderColor: colors.primaryAccent,
     borderStyle: 'dashed',
   },
   adText: {
-    color: colors.secondaryAccent, // Amarillo
+    color: colors.secondaryAccent,
     fontSize: 16,
     fontWeight: 'bold',
     textTransform: 'uppercase',
