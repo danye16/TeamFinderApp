@@ -1,10 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import CryptoJS from 'crypto-js'; // <--- NECESARIO para que funcione hashPassword
 
 // Definición de tipos
 export interface UserData {
+  id?: number;
   username: string;
-  contraseña?: string; 
-  password?: string;
+  contraseña?: string;
   steamId: string;
   pais: string;
   edad: number;
@@ -18,25 +19,35 @@ export interface ApiUserResponse {
   contraseña?: string;
 }
 
-const API_URL = 'http://teamfinderapiv2.somee.com/api/Usuarios';
+const BASE_URL = 'http://teamfinderapiv2.somee.com/api/Usuarios';
 
+// --- ESTA ES LA FUNCIÓN QUE TE FALTABA ---
+const hashPassword = (password: string): string => {
+  // 1. Genera el hash SHA256
+  const hash = CryptoJS.SHA256(password);
+  // 2. Convierte a Base64 (Para coincidir con C#)
+  return hash.toString(CryptoJS.enc.Base64);
+};
+
+// --- FUNCIÓN DE REGISTRO ---
 // --- FUNCIÓN DE REGISTRO ---
 export const registerUser = async (userData: UserData): Promise<any> => {
   try {
-    // 1. Preparar datos (Mapeo exacto para tu API C#)
     const payload = {
       username: userData.username,
-      contraseña: userData.password, // Mapeamos password -> contraseña
+      contraseña: userData.contraseña, 
       steamId: userData.steamId,
       pais: userData.pais,
-      edad: Number(userData.edad),   // Aseguramos número
+      edad: Number(userData.edad),
       estiloJuego: userData.estiloJuego,
     };
 
-    console.log("API Request [POST]:", JSON.stringify(payload));
+    const targetUrl = `${BASE_URL}/CrearUsuario`; 
 
-    // 2. Hacer la petición
-    const response = await fetch(`${API_URL}/CrearUsuario`, {
+    console.error(`[API] Conectando a: ${targetUrl}`);
+    console.error(`[API] Payload:`, JSON.stringify(payload, null, 2));
+
+    const response = await fetch(targetUrl, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
@@ -45,61 +56,104 @@ export const registerUser = async (userData: UserData): Promise<any> => {
       body: JSON.stringify(payload),
     });
 
-    // 3. Analizar la respuesta RAW (Texto crudo antes de JSON)
+    console.error(`[API] Response status: ${response.status}`);
+
     const responseText = await response.text();
-    console.log(`API Status: ${response.status}`);
-    console.log(`API Response Body: ${responseText}`);
 
     if (!response.ok) {
-      // Si el servidor dio error (400, 500), lanzamos el texto que nos devolvió
       throw new Error(`Server Error (${response.status}): ${responseText}`);
     }
 
-    // 4. Intentar parsear JSON solo si todo salió bien
     try {
+      // Devolvemos los datos del usuario registrado
       return JSON.parse(responseText);
     } catch (e) {
-      // A veces la API devuelve texto plano "Usuario creado" en lugar de JSON
+      // Si la respuesta no es JSON, devolvemos un objeto con el mensaje
       return { message: responseText };
     }
 
   } catch (error: any) {
     console.error("API Fetch Error:", error);
-    
-    // Detectar error de bloqueo HTTP en Android
     if (error.message && error.message.includes('Network request failed')) {
-      throw new Error("Error de Conexión: Android bloqueó la petición HTTP. \n\nSolución: Agrega android:usesCleartextTraffic=\"true\" en AndroidManifest.xml");
+      throw new Error("Error de Conexión: Android bloqueó la petición HTTP.");
     }
+    throw error;
+  }
+};
+// --- FUNCIÓN DE LOGIN ---
+export const loginUser = async (username: string, passwordInput: string): Promise<ApiUserResponse> => {
+  try {
+    // URL Final: http://teamfinderapiv2.somee.com/api/Usuarios/Login
+    const targetUrl = `${BASE_URL}/Login`;
     
+    console.log(`[Login] Conectando a: ${targetUrl}`);
+
+    const response = await fetch(targetUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        Username: username,
+        Password: passwordInput 
+      }),
+    });
+
+    if (!response.ok) {
+      // Si es 401, es usuario o contraseña incorrectos
+      if (response.status === 401) {
+        throw new Error('Usuario o contraseña incorrectos');
+      }
+      const errorText = await response.text();
+      throw new Error(errorText || 'Error al iniciar sesión');
+    }
+
+    const foundUser = await response.json();
+    return foundUser;
+
+  } catch (error) {
+    console.error("Login Error:", error);
     throw error;
   }
 };
 
-// --- FUNCIÓN DE LOGIN (Simple, sin hash del cliente por ahora para probar) ---
-export const loginUser = async (username: string, passwordInput: string): Promise<ApiUserResponse> => {
+export const loginWithSteam = async (steamId: string): Promise<UserData> => {
   try {
-    console.log("API Request [GET]: MostrarUsuarios");
-    const response = await fetch(`${API_URL}/MostrarUsuarios`);
+    console.error(`[Steam Login] Intentando login con SteamID: ${steamId}`);
     
+    const response = await fetch(`${BASE_URL}/LoginSteam`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ steamId }),
+    });
+
+    console.error(`[Steam Login] Response status: ${response.status}`);
+
     if (!response.ok) {
-      throw new Error('No se pudo conectar con el servidor');
+      const errorText = await response.text();
+      console.error(`[Steam Login] Error response: ${errorText}`);
+      throw new Error(errorText || 'Error al iniciar sesión con Steam');
     }
 
-    const users: ApiUserResponse[] = await response.json();
+    const responseText = await response.text();
+    console.error(`[Steam Login] Response text: ${responseText}`);
 
-    // Buscamos al usuario (Fitrado en cliente)
-    const foundUser = users.find(u => 
-      u.username.toLowerCase() === username.toLowerCase() && 
-      (u.contraseña === passwordInput || u.username === username) // Login simple para test
-    );
-
-    if (!foundUser) {
-      throw new Error('Usuario o contraseña incorrectos');
+    // Si la respuesta está vacía, lanzar un error
+    if (!responseText || responseText.trim() === '') {
+      throw new Error('Respuesta vacía del servidor al iniciar sesión con Steam');
     }
 
-    return foundUser;
+    // Intentar parsear la respuesta como JSON
+    try {
+      return JSON.parse(responseText);
+    } catch (e) {
+      console.error('[Steam Login] Error al parsear JSON:', e);
+      throw new Error('La respuesta del servidor no es un JSON válido');
+    }
   } catch (error) {
-    console.error("Login Error:", error);
+    console.error("Error en Steam Login:", error);
     throw error;
   }
 };
