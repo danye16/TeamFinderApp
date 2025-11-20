@@ -1,13 +1,12 @@
-import React, { useState, useContext } from 'react';
-import { View, StyleSheet, Text, Alert, TouchableOpacity, Modal, ActivityIndicator } from 'react-native';
-import { WebView } from 'react-native-webview'; // <--- NO OLVIDAR
-import { AuthContext } from './AuthContext';
-import FormInput from '../FormInput'; 
-import FormButton from '../FormButton';
 import { colors } from '@/constants/coloresVistaPrincipal';
+import React, { useContext, useState } from 'react';
+import { ActivityIndicator, Alert, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { WebView } from 'react-native-webview'; // <--- NO OLVIDAR
+import FormButton from '../FormButton';
+import FormInput from '../FormInput';
+import { AuthContext } from './AuthContext';
 
 // Importamos helper de Steam (el mismo que usas en Registro)
-import { fetchSteamUserData } from '../../constants/steam'; 
 
 interface LoginScreenProps {
   onRegisterPress?: () => void;
@@ -33,6 +32,9 @@ const LoginScreen = ({ onRegisterPress }: LoginScreenProps) => {
   const [showSteamModal, setShowSteamModal] = useState(false);
   const [steamLoading, setSteamLoading] = useState(false);
 
+  // --- ESTADO VISIBILIDAD CONTRASEÑA ---
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+
   // Login Normal (Usuario/Pass)
   const handleLogin = async () => {
     if (!username || !password) {
@@ -43,7 +45,9 @@ const LoginScreen = ({ onRegisterPress }: LoginScreenProps) => {
     try {
       if (auth) await auth.login(username, password);
     } catch (error: any) {
-      Alert.alert('Fallo de inicio de sesión', "Credenciales incorrectas");
+      // Manejo de error mejorado
+      const msg = error.message || "Credenciales incorrectas";
+      Alert.alert('Fallo de inicio de sesión', msg);
     } finally {
       setLoading(false);
     }
@@ -55,51 +59,37 @@ const LoginScreen = ({ onRegisterPress }: LoginScreenProps) => {
   };
 
   const handleWebViewNavigation = async (navState: any) => {
-  const { url } = navState;
+    const { url } = navState;
 
-  // Detectamos el retorno
-  if (url.startsWith('https://example.com') || url.startsWith('http://example.com')) {
-    setShowSteamModal(false);
-    setSteamLoading(true);
+    // Detectamos el retorno
+    if (url.startsWith('https://example.com') || url.startsWith('http://example.com')) {
+        setShowSteamModal(false);
+        setSteamLoading(true); 
 
-    const decodedUrl = decodeURIComponent(url);
-    const regex = /(?:openid\/id\/|openid%2Fid%2F|steamid=)(\d{17})/;
-    const match = decodedUrl.match(regex);
+        const decodedUrl = decodeURIComponent(url);
+        const regex = /(?:openid\/id\/|openid%2Fid%2F|steamid=)(\d{17})/;
+        const match = decodedUrl.match(regex);
 
-    if (match && match[1]) {
-      const extractedSteamId = match[1];
-      console.log("Intentando Login con SteamID:", extractedSteamId);
+        if (match && match[1]) {
+            const extractedSteamId = match[1];
+            console.log("Intentando Login con SteamID:", extractedSteamId);
 
-      try {
-        if (auth) {
-          await auth.loginSteam(extractedSteamId);
+            try {
+                // AQUÍ LA MAGIA: Llamamos al login directo por ID
+                if (auth) {
+                    await auth.loginSteam(extractedSteamId);
+                }
+            } catch (error: any) {
+                console.error(error);
+                Alert.alert("Error", "No encontramos una cuenta vinculada a este Steam ID. Por favor regístrate primero.");
+            } finally {
+                setSteamLoading(false);
+            }
+        } else {
+            setSteamLoading(false);
         }
-      } catch (error: any) {
-        console.error(error);
-        let errorMessage = "No se pudo iniciar sesión con Steam. Por favor, inténtalo de nuevo.";
-        
-        if (error.message) {
-          if (error.message.includes('Respuesta vacía del servidor')) {
-            errorMessage = "El servidor no respondió correctamente. Por favor, inténtalo de nuevo más tarde.";
-          } else if (error.message.includes('No es un JSON válido')) {
-            errorMessage = "Error al procesar la respuesta del servidor. Por favor, inténtalo de nuevo.";
-          } else if (error.message.includes('No encontramos una cuenta')) {
-            errorMessage = "No encontramos una cuenta vinculada a este Steam ID. Por favor regístrate primero.";
-          } else {
-            errorMessage = error.message;
-          }
-        }
-        
-        Alert.alert("Error de inicio de sesión", errorMessage);
-      } finally {
-        setSteamLoading(false);
-      }
-    } else {
-      setSteamLoading(false);
-      Alert.alert("Error", "No se pudo validar la sesión de Steam.");
     }
-  }
-};
+  };
 
   return (
     <View style={styles.container}>
@@ -153,11 +143,14 @@ const LoginScreen = ({ onRegisterPress }: LoginScreenProps) => {
           autoCapitalize="none"
         />
         
+        {/* INPUT CONTRASEÑA CON OJITO */}
         <FormInput
           placeholder="Contraseña"
           value={password}
           onChangeText={setPassword}
-          secureTextEntry
+          secureTextEntry={!isPasswordVisible} // Alternar visibilidad
+          rightIcon={isPasswordVisible ? 'eye-off' : 'eye'} // Icono dinámico
+          onRightIconPress={() => setIsPasswordVisible(!isPasswordVisible)} // Acción del ojito
         />
 
         <View style={styles.buttonContainer}>
