@@ -1,18 +1,15 @@
 import { colors } from '@/constants/coloresVistaPrincipal';
 import React, { useContext, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { WebView } from 'react-native-webview'; // <--- NO OLVIDAR
+import { WebView } from 'react-native-webview';
 import FormButton from '../FormButton';
 import FormInput from '../FormInput';
 import { AuthContext } from './AuthContext';
-
-// Importamos helper de Steam (el mismo que usas en Registro)
 
 interface LoginScreenProps {
   onRegisterPress?: () => void;
 }
 
-// Constantes para el WebView (Mismas que en Registro)
 const STEAM_RETURN_URL = 'https://example.com/auth/steam';
 const STEAM_LOGIN_URL = 'https://steamcommunity.com/openid/login' +
   '?openid.ns=http://specs.openid.net/auth/2.0' +
@@ -28,14 +25,13 @@ const LoginScreen = ({ onRegisterPress }: LoginScreenProps) => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // --- ESTADOS STEAM ---
+  // Estados Steam
   const [showSteamModal, setShowSteamModal] = useState(false);
   const [steamLoading, setSteamLoading] = useState(false);
 
-  // --- ESTADO VISIBILIDAD CONTRASEÑA ---
+  // Estado visibilidad contraseña
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
-  // Login Normal (Usuario/Pass)
   const handleLogin = async () => {
     if (!username || !password) {
       Alert.alert('Error', 'Por favor ingresa usuario y contraseña');
@@ -45,7 +41,6 @@ const LoginScreen = ({ onRegisterPress }: LoginScreenProps) => {
     try {
       if (auth) await auth.login(username, password);
     } catch (error: any) {
-      // Manejo de error mejorado
       const msg = error.message || "Credenciales incorrectas";
       Alert.alert('Fallo de inicio de sesión', msg);
     } finally {
@@ -53,7 +48,6 @@ const LoginScreen = ({ onRegisterPress }: LoginScreenProps) => {
     }
   };
 
-  // --- LOGICA STEAM LOGIN ---
   const handleSteamLoginPress = () => {
     setShowSteamModal(true);
   };
@@ -61,7 +55,6 @@ const LoginScreen = ({ onRegisterPress }: LoginScreenProps) => {
   const handleWebViewNavigation = async (navState: any) => {
     const { url } = navState;
 
-    // Detectamos el retorno
     if (url.startsWith('https://example.com') || url.startsWith('http://example.com')) {
         setShowSteamModal(false);
         setSteamLoading(true); 
@@ -72,16 +65,16 @@ const LoginScreen = ({ onRegisterPress }: LoginScreenProps) => {
 
         if (match && match[1]) {
             const extractedSteamId = match[1];
-            console.log("Intentando Login con SteamID:", extractedSteamId);
+            console.log("SteamID obtenido:", extractedSteamId);
 
             try {
-                // AQUÍ LA MAGIA: Llamamos al login directo por ID
+                // USAMOS LA NUEVA FUNCIÓN HÍBRIDA
                 if (auth) {
-                    await auth.loginSteam(extractedSteamId);
+                    await auth.loginOrRegisterWithSteam(extractedSteamId);
                 }
             } catch (error: any) {
                 console.error(error);
-                Alert.alert("Error", "No encontramos una cuenta vinculada a este Steam ID. Por favor regístrate primero.");
+                Alert.alert("Error", "Hubo un problema al conectar con Steam. Inténtalo de nuevo.");
             } finally {
                 setSteamLoading(false);
             }
@@ -94,7 +87,6 @@ const LoginScreen = ({ onRegisterPress }: LoginScreenProps) => {
   return (
     <View style={styles.container}>
       
-      {/* MODAL DE STEAM */}
       <Modal visible={showSteamModal} animationType="slide" onRequestClose={() => setShowSteamModal(false)}>
         <View style={{flex: 1, paddingTop: 40, backgroundColor: '#171a21'}}>
             <View style={styles.modalHeader}>
@@ -112,7 +104,7 @@ const LoginScreen = ({ onRegisterPress }: LoginScreenProps) => {
       </Modal>
 
       <Text style={styles.title}>TEAM FINDER</Text>
-      <Text style={styles.subtitle}>Inicia sesión para encontrar equipo</Text>
+      <Text style={styles.subtitle}>Inicia sesión o conéctate con Steam</Text>
 
       <View style={styles.form}>
         
@@ -125,7 +117,7 @@ const LoginScreen = ({ onRegisterPress }: LoginScreenProps) => {
             {(loading || steamLoading) ? (
                 <ActivityIndicator color="#fff" />
             ) : (
-                <Text style={styles.steamButtonText}>🎮 Iniciar con Steam</Text>
+                <Text style={styles.steamButtonText}>🎮 Continuar con Steam</Text>
             )}
         </TouchableOpacity>
 
@@ -135,7 +127,6 @@ const LoginScreen = ({ onRegisterPress }: LoginScreenProps) => {
             <View style={styles.dividerLine} />
         </View>
 
-        {/* LOGIN NORMAL */}
         <FormInput
           placeholder="Nombre de usuario"
           value={username}
@@ -143,14 +134,13 @@ const LoginScreen = ({ onRegisterPress }: LoginScreenProps) => {
           autoCapitalize="none"
         />
         
-        {/* INPUT CONTRASEÑA CON OJITO */}
         <FormInput
           placeholder="Contraseña"
           value={password}
           onChangeText={setPassword}
-          secureTextEntry={!isPasswordVisible} // Alternar visibilidad
-          rightIcon={isPasswordVisible ? 'eye-off' : 'eye'} // Icono dinámico
-          onRightIconPress={() => setIsPasswordVisible(!isPasswordVisible)} // Acción del ojito
+          secureTextEntry={!isPasswordVisible}
+          rightIcon={isPasswordVisible ? 'eye-off' : 'eye'}
+          onRightIconPress={() => setIsPasswordVisible(!isPasswordVisible)}
         />
 
         <View style={styles.buttonContainer}>
@@ -208,7 +198,6 @@ const styles = StyleSheet.create({
     color: colors.secondaryAccent,
     fontWeight: 'bold',
   },
-  // Estilos para Steam y Divisor
   steamButton: {
     backgroundColor: '#171a21',
     padding: 15,

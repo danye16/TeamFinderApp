@@ -55,7 +55,7 @@ const GameCard = ({ game, onPress }: GameCardProps) => {
                 setModalVisible(false);
               }}
             >
-              <Text style={styles.modalButtonText}>Mandar mensaje</Text>
+              <Text style={styles.modalButtonText}>Encontrar amigos</Text>
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.modalClose} 

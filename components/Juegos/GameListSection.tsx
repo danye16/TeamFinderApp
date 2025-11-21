@@ -1,6 +1,5 @@
 import React from 'react';
-import { FlatList, StyleSheet } from 'react-native';
-import { ThemedView } from '@/components/themed-view'; // Asegúrate de que la ruta sea correcta
+import { FlatList, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { Game } from '@/components/api/steamApi';
 import GameCard from './GameCard'; // Importamos tu componente GameCard
@@ -14,7 +13,7 @@ interface GameListSectionProps {
 
 const GameListSection = ({ title, data, onGamePress }: GameListSectionProps) => {
   return (
-    <ThemedView style={styles.section}>
+    <View style={styles.section}>
       <ThemedText style={styles.sectionTitle}>{title}</ThemedText>
       <FlatList
         data={data}
@@ -26,7 +25,7 @@ const GameListSection = ({ title, data, onGamePress }: GameListSectionProps) => 
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.horizontalListContainer}
       />
-    </ThemedView>
+    </View>
   );
 };
 

@@ -157,3 +157,52 @@ export const loginWithSteam = async (steamId: string): Promise<UserData> => {
     throw error;
   }
 };
+
+// --- OBTENER USUARIO POR ID ---
+export const getUserById = async (id: number): Promise<UserData> => {
+  try {
+    const url = `${BASE_URL}/BuscarUsuarioEspecifico/${id}`;
+    console.log(`[API] Buscando usuario: ${url}`);
+    
+    // Realizamos la petición
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      throw new Error(`Error al obtener datos del usuario (${response.status})`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error("Error en getUserById:", error);
+    throw error;
+  }
+};
+
+// EDITAR USUARIO ---
+export const updateUser = async (id: number, data: any): Promise<boolean> => {
+  try {
+    const url = `${BASE_URL}/EditarUsuario/${id}`;
+    console.log(`[API] Actualizando usuario: ${url}`, data);
+
+    // El backend espera este JSON específico:
+    // { "username", "steamId", "pais", "edad", "estiloJuego", "nuevaContraseña" }
+    
+    const response = await fetch(url, {
+      method: 'PUT', // Usualmente editar es PUT, si falla prueba con POST
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || `Error al actualizar (${response.status})`);
+    }
+
+    return true; // Éxito
+  } catch (error) {
+    console.error("Error en updateUser:", error);
+    throw error;
+  }
+};
