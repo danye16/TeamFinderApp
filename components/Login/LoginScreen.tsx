@@ -1,6 +1,6 @@
 import { colors } from '@/constants/coloresVistaPrincipal';
-import React, { useContext, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useContext, useState, useRef } from 'react'; // <--- 1. Agregamos useRef
+import { ActivityIndicator, Alert, Modal, StyleSheet, Text, TouchableOpacity, View,  } from 'react-native';
 import { WebView } from 'react-native-webview';
 import FormButton from '../FormButton';
 import FormInput from '../FormInput';
@@ -28,6 +28,10 @@ const LoginScreen = ({ onRegisterPress }: LoginScreenProps) => {
   // Estados Steam
   const [showSteamModal, setShowSteamModal] = useState(false);
   const [steamLoading, setSteamLoading] = useState(false);
+  
+  // --- 2. CANDADO PARA EVITAR DOBLE LLAMADA ---
+  // Esto evita que el WebView dispare el registro 2 veces seguidas
+  const isProcessingSteam = useRef(false);
 
   // Estado visibilidad contraseña
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
@@ -49,13 +53,24 @@ const LoginScreen = ({ onRegisterPress }: LoginScreenProps) => {
   };
 
   const handleSteamLoginPress = () => {
+    // Reiniciamos el candado al abrir el modal
+    isProcessingSteam.current = false; 
     setShowSteamModal(true);
   };
 
   const handleWebViewNavigation = async (navState: any) => {
     const { url } = navState;
 
+    // Detectamos si estamos en la URL de retorno
     if (url.startsWith('https://example.com') || url.startsWith('http://example.com')) {
+        
+        // --- 3. BLOQUEO DE SEGURIDAD ---
+        // Si ya estamos procesando un login, ignoramos cualquier evento extra del WebView
+        if (isProcessingSteam.current) return;
+        
+        // Activamos el candado inmediatamente
+        isProcessingSteam.current = true;
+
         setShowSteamModal(false);
         setSteamLoading(true); 
 
@@ -68,18 +83,21 @@ const LoginScreen = ({ onRegisterPress }: LoginScreenProps) => {
             console.log("SteamID obtenido:", extractedSteamId);
 
             try {
-                // USAMOS LA NUEVA FUNCIÓN HÍBRIDA
                 if (auth) {
                     await auth.loginOrRegisterWithSteam(extractedSteamId);
                 }
             } catch (error: any) {
                 console.error(error);
                 Alert.alert("Error", "Hubo un problema al conectar con Steam. Inténtalo de nuevo.");
+                // Si falló, liberamos el candado para que pueda reintentar
+                isProcessingSteam.current = false; 
             } finally {
                 setSteamLoading(false);
             }
         } else {
+            // Si no se encontró ID, liberamos el candado
             setSteamLoading(false);
+            isProcessingSteam.current = false;
         }
     }
   };
@@ -98,7 +116,9 @@ const LoginScreen = ({ onRegisterPress }: LoginScreenProps) => {
             <WebView 
                 source={{ uri: STEAM_LOGIN_URL }}
                 onNavigationStateChange={handleWebViewNavigation}
-                incognito={true} cacheEnabled={false} thirdPartyCookiesEnabled={false}
+                incognito={true} 
+                cacheEnabled={false} 
+                thirdPartyCookiesEnabled={false}
             />
         </View>
       </Modal>
@@ -108,7 +128,6 @@ const LoginScreen = ({ onRegisterPress }: LoginScreenProps) => {
 
       <View style={styles.form}>
         
-        {/* BOTÓN DE STEAM LOGIN */}
         <TouchableOpacity 
             style={styles.steamButton} 
             onPress={handleSteamLoginPress}

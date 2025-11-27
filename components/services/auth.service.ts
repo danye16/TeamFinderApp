@@ -10,6 +10,7 @@ export interface UserData {
   pais: string;
   edad: number;
   estiloJuego: string;
+  avatarUrl?: string;
 }
 
 export interface ApiUserResponse {
@@ -17,9 +18,10 @@ export interface ApiUserResponse {
   username: string;
   steamId: string;
   contraseña?: string;
+  avatarUrl?: string;
 }
 
-const BASE_URL = 'http://teamfinderapiv2.somee.com/api/Usuarios';
+const BASE_URL = 'https://teamfinderapiv2.somee.com/api/Usuarios';
 
 // --- ESTA ES LA FUNCIÓN QUE TE FALTABA ---
 const hashPassword = (password: string): string => {
@@ -40,6 +42,7 @@ export const registerUser = async (userData: UserData): Promise<any> => {
       pais: userData.pais,
       edad: Number(userData.edad),
       estiloJuego: userData.estiloJuego,
+      avatarUrl: userData.avatarUrl
     };
 
     const targetUrl = `${BASE_URL}/CrearUsuario`; 

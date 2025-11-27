@@ -7,6 +7,7 @@ import { fetchSteamUserData } from '@/constants/steam';
 // 1. Definimos UserInfo: Es como UserData pero con 'id' OBLIGATORIO
 export interface UserInfo extends UserData {
   id: number;
+  avatarUrl?: string;
 }
 
 interface AuthContextProps {
@@ -145,13 +146,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       const randomPass = Math.random().toString(36).slice(-8) + "Steam1!";
 
+      // const newUserData: UserData = {
+      //   username: steamProfile.personaname.replace(/[^a-zA-Z0-9]/g, "") || `User${steamId.slice(-4)}`,
+      //   steamId: steamId,
+      //   contraseña: randomPass,
+      //   pais: (steamProfile.pais && steamProfile.pais !== "Otro") ? steamProfile.pais : "Otro",
+      //   edad: 18, // Valor por defecto
+      //   estiloJuego: "Casual" // Valor por defecto
+      // };
       const newUserData: UserData = {
         username: steamProfile.personaname.replace(/[^a-zA-Z0-9]/g, "") || `User${steamId.slice(-4)}`,
         steamId: steamId,
         contraseña: randomPass,
         pais: (steamProfile.pais && steamProfile.pais !== "Otro") ? steamProfile.pais : "Otro",
-        edad: 18, // Valor por defecto
-        estiloJuego: "Casual" // Valor por defecto
+        edad: 18, 
+        estiloJuego: "Casual",
+        avatarUrl: steamProfile.avatar 
       };
 
       console.log("Registrando usuario automático:", newUserData.username);
@@ -159,7 +169,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const userRegistered = await registerUser(newUserData);
 
       if (userRegistered && userRegistered.id) {
-        await saveSession(userRegistered); // Guardamos la sesión del nuevo usuario
+        const userForSession = { ...userRegistered, avatarUrl: newUserData.avatarUrl };
+        await saveSession(userForSession); // Guardamos la sesión del nuevo usuario
       } else {
         throw new Error("El registro no devolvió un ID válido.");
       }

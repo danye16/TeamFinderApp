@@ -29,8 +29,9 @@ export default function IndexScreen() {
 
 
 
-const handleGamePress = async (game: Game) => {
+  const handleGamePress = async (game: Game) => {
     console.log(`Seleccionado: ${game.name}`);
+
     
     if (userInfo?.id) {
       // 1. Registrar que el usuario juega esto (en tu BD)
@@ -40,13 +41,18 @@ const handleGamePress = async (game: Game) => {
 
     // 2. Navegar a la pantalla de detalle
     router.push({
-     pathname: "/game/[id]",
-      params: { 
-        id: game.appid, 
-        name: game.name, 
-        coverUrl: game.coverUrl 
+      pathname: "/game/[id]",
+      params: {
+        id: game.appid,
+        name: game.name,
+        coverUrl: game.coverUrl
       }
     });
+  };
+
+  const handleSearchPress = () => {
+    // Navegar a la pantalla de filtros
+    router.push("/search/filter");
   };
 
 
@@ -54,7 +60,13 @@ const handleGamePress = async (game: Game) => {
 
 
 
-// 1. ESTADO DE AUTENTICACIÓN 
+
+
+
+
+
+
+  // 1. ESTADO DE AUTENTICACIÓN 
   const authContext = useContext(AuthContext);
   const [isRegistering, setIsRegistering] = useState(false);
 
@@ -149,8 +161,17 @@ const handleGamePress = async (game: Game) => {
           <Ionicons name="log-out-outline" size={24} color={colors.primaryAccent} />
         </TouchableOpacity>
       </View> */}
-
+      <View style={styles.searchContainer}>
+        <TouchableOpacity style={styles.searchBar} onPress={handleSearchPress}>
+          <Ionicons name="search" size={20} color={colors.secondaryText} />
+          <Text style={styles.placeholderText}>Buscar compañeros (Filtrar por Juegos)...</Text>
+          <View style={styles.filterIcon}>
+            <Ionicons name="options-outline" size={20} color="white" />
+          </View>
+        </TouchableOpacity>
+      </View>
       <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+
         <GameListSection title="Tendencias" data={trendingGames} onGamePress={handleGamePress} />
         <GameListSection title="Para ti" data={recommendedGames} onGamePress={handleGamePress} />
 
@@ -168,7 +189,7 @@ const handleGamePress = async (game: Game) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.primaryBackground,
+    backgroundColor: '#121212',
   },
   scrollContent: {
     paddingBottom: 20,
@@ -178,7 +199,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.primaryBackground,
+    backgroundColor: '#121212',
   },
   loadingText: {
     marginTop: 10,
@@ -239,5 +260,38 @@ const styles = StyleSheet.create({
   },
   retryText: {
     color: colors.primaryText
-  }
+  },
+  //PARA EL FILTRADO
+  // Estilos del Buscador Integrado
+searchContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#121212', // Coincide con el fondo general
+    borderBottomWidth: 1,
+    borderBottomColor: '#333', // Línea sutil gris oscura
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#252525', // <--- GRIS OSCURO (Ya no será blanco)
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  placeholderText: {
+    flex: 1,
+    color: '#aaa', // Texto gris claro
+    marginLeft: 10,
+    fontSize: 14,
+  },
+  filterIcon: {
+    backgroundColor: colors.secondaryAccent || '#007AFF', // O tu color de acento
+    padding: 6,
+    borderRadius: 8,
+  }, 
+ 
+ 
+  
 });

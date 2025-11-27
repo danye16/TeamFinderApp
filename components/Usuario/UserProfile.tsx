@@ -149,7 +149,8 @@ const [avatarUrl, setAvatarUrl] = useState(DEFAULT_AVATAR);
         pais: form.pais,
         edad: parseInt(form.edad) || 18,
         estiloJuego: form.estiloJuego,
-        nuevaContraseña: form.password
+        nuevaContraseña: form.password,
+        avatarUrl: avatarUrl
       };
 
       await updateUser(userInfo.id, payload);
