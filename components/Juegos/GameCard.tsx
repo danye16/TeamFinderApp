@@ -8,6 +8,8 @@ import { colors } from '@/constants/coloresVistaPrincipal';
 interface GameCardProps {
   game: Game;
   onPress: (game: Game) => void;
+  onFavoritePress?: (game: Game) => void;
+  hidePlayerCount?: boolean;
 }
 
 // Formatea números grandes con comas
@@ -15,14 +17,23 @@ const formatNumber = (num: number): string => {
   return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 };
 // Componente GameCard
-const GameCard = ({ game, onPress }: GameCardProps) => {
+const GameCard = ({ game, onPress, onFavoritePress, hidePlayerCount }: GameCardProps) => {
+  const [liked, setLiked] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
-// Renderizamos la tarjeta del juego
+  const handleHeartPress = () => {
+    setLiked(!liked); // Feedback visual inmediato
+    if (onFavoritePress) {
+      onFavoritePress(game);
+    }
+  };
+
+  // Renderizamos la tarjeta del juego
+
   return (
     <TouchableOpacity style={styles.card} onPress={() => setModalVisible(true)}>
       {/* Imagen */}
-      <Image 
-        source={{ uri: game.coverUrl }} 
+      <Image
+        source={{ uri: game.coverUrl }}
         style={styles.cover}
         resizeMode="cover"
       />
@@ -30,13 +41,22 @@ const GameCard = ({ game, onPress }: GameCardProps) => {
       {/* Info */}
       <View style={styles.infoContainer}>
         <Text style={styles.title} numberOfLines={2}>{game.name}</Text>
-        <Text style={styles.playerCount}>{formatNumber(game.playerCount)} jugadores</Text>
+        {!hidePlayerCount && (
+          <Text style={styles.playerCount}>{formatNumber(game.playerCount)} jugadores</Text>
+        )}
       </View>
 
-      {/* Ícono de corazón fijo */}
-      <View style={styles.iconContainer}>
-        <Ionicons name="heart" size={22} color={colors.secondaryAccent} />
-      </View>
+      {/* Ícono de corazón */}
+      <TouchableOpacity
+        style={styles.iconContainer}
+        onPress={handleHeartPress}
+      >
+        <Ionicons
+          name={liked ? "heart" : "heart-outline"}
+          size={24}
+          color={liked ? colors.primaryAccent : colors.secondaryAccent}
+        />
+      </TouchableOpacity>
 
       {/* Modal */}
       <Modal
@@ -48,8 +68,8 @@ const GameCard = ({ game, onPress }: GameCardProps) => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>{game.name}</Text>
-            <TouchableOpacity 
-              style={styles.modalButton} 
+            <TouchableOpacity
+              style={styles.modalButton}
               onPress={() => {
                 onPress(game);
                 setModalVisible(false);
@@ -57,8 +77,8 @@ const GameCard = ({ game, onPress }: GameCardProps) => {
             >
               <Text style={styles.modalButtonText}>Encontrar amigos</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.modalClose} 
+            <TouchableOpacity
+              style={styles.modalClose}
               onPress={() => setModalVisible(false)}
             >
               <Text style={styles.modalCloseText}>Cerrar</Text>
@@ -104,6 +124,7 @@ const styles = StyleSheet.create({
   iconContainer: {
     alignItems: 'center',
     marginBottom: 12,
+    padding: 5,
   },
   // Modal estilos
   modalOverlay: {

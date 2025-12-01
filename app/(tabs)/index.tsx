@@ -1,6 +1,6 @@
-import React, { useState, useContext, useEffect } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, Text, View } from 'react-native';
-import { router, useNavigation, useRouter } from 'expo-router'; // <--- IMPORTANTE
+import React, { useState, useContext, useEffect, useCallback } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, Text, View, Alert } from 'react-native';
+import { router, useNavigation, useFocusEffect } from 'expo-router'; // <--- IMPORTANTE: useFocusEffect para actualizar al volver
 
 // Componentes UI y Tema
 import { ThemedText } from '@/components/themed-text';
@@ -13,33 +13,86 @@ import { Game } from '@/components/api/steamApi';
 import { AuthContext } from '@/components/Login/AuthContext';
 import LoginScreen from '@/components/Login/LoginScreen';
 import RegisterScreen from '@/components/Login/RegisterScreen';
-import { addGameToUser } from '@/components/services/userGame.service';
+// Importamos los servicios necesarios
+import { addGameToUser, getGamesByUser } from '@/components/services/userGame.service';
 
 // Hooks
 import { useTopGames } from '@/hooks/useTopGames';
 
 export default function IndexScreen() {
-  // // 1. ESTADO DE AUTENTICACIÓN
-  // const { userToken, isLoading: authLoading, logout } = useContext(AuthContext)!;
-  // const [isRegistering, setIsRegistering] = useState(false);
+  // 1. ESTADO DE AUTENTICACIÓN 
+  const authContext = useContext(AuthContext);
+  const [isRegistering, setIsRegistering] = useState(false);
 
-  // // 2. HOOKS DE NAVEGACIÓN Y JUEGOS
-  // const navigation = useNavigation();
-  // const { games, isLoading: gamesLoading, error } = useTopGames();
+  // 2. HOOKS DE NAVEGACIÓN Y JUEGOS
+  const navigation = useNavigation();
+  const { games, isLoading: gamesLoading, error } = useTopGames();
+
+  // --- ESTADO PARA "MIS JUEGOS" ---
+  const [myGames, setMyGames] = useState<Game[]>([]);
+
+  // PROTECCIÓN: Si el contexto aún no carga
+  if (!authContext) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color={colors.primaryAccent} />
+      </View>
+    );
+  }
+
+  const { userToken, isLoading: authLoading, logout, userInfo } = authContext;
+
+  // 3. EFECTO PARA OCULTAR/MOSTRAR LA BARRA DE TABS
+  useEffect(() => {
+    if (!userToken) {
+      navigation.setOptions({ headerShown: false, swipeEnabled: false });
+    } else {
+      navigation.setOptions({ headerShown: true, swipeEnabled: true });
+    }
+  }, [userToken, navigation]);
 
 
+  // --- FUNCIÓN PARA CARGAR "MIS JUEGOS" ---
+  const fetchMyGames = async () => {
+    if (userInfo?.id) {
+      try {
+        const userGamesData = await getGamesByUser(userInfo.id);
+        
+        // Transformamos los datos de UserGame a Game
+        const formattedGames: Game[] = userGamesData.map(ug => ({
+          appid: ug.steamAppId,
+          name: ug.nombre,
+          coverUrl: ug.imagenUrl,
+          playerCount: 0 // Ponemos 0, pero la tarjeta lo ocultará si actualizaste GameCard
+        }));
+        
+        setMyGames(formattedGames);
+      } catch (e) {
+        console.error("Error cargando mis juegos", e);
+      }
+    }
+  };
+
+  // --- RECARGAR AL VOLVER A LA PANTALLA ---
+  // Esto asegura que si agregas un juego en la vista de detalle y vuelves, aparezca aquí.
+  useFocusEffect(
+    useCallback(() => {
+      fetchMyGames();
+    }, [userInfo?.id])
+  );
+
+
+  // --- MANEJADORES DE EVENTOS ---
 
   const handleGamePress = async (game: Game) => {
     console.log(`Seleccionado: ${game.name}`);
 
-    
+    // Tu lógica original: Si estoy logueado, lo agrego al historial/base de datos al entrar
     if (userInfo?.id) {
-      // 1. Registrar que el usuario juega esto (en tu BD)
-      // No usamos await para que la navegación sea instantánea
       addGameToUser(userInfo.id, game);
     }
 
-    // 2. Navegar a la pantalla de detalle
+    // Navegar a la pantalla de detalle
     router.push({
       pathname: "/game/[id]",
       params: {
@@ -50,67 +103,37 @@ export default function IndexScreen() {
     });
   };
 
+  const handleAddToFavorites = async (game: Game) => {
+    if (userInfo?.id) {
+      console.log(`Añadiendo a favoritos: ${game.name}`);
+      
+      // 1. Verificar si ya existe para no duplicar visualmente
+      if (myGames.some(g => g.appid === game.appid)) {
+        Alert.alert("Aviso", "Este juego ya está en tu lista.");
+        return;
+      }
+
+      // 2. Actualización Optimista: Lo mostramos inmediatamente en la lista de arriba
+      setMyGames(prev => [game, ...prev]);
+
+      // 3. Guardar en la base de datos
+      await addGameToUser(userInfo.id, game);
+      
+      Alert.alert("¡Añadido!", `${game.name} ahora está en tus juegos.`);
+      
+    } else {
+      console.log("Usuario no logueado");
+      Alert.alert("Atención", "Debes iniciar sesión para guardar juegos.");
+    }
+  };
+
   const handleSearchPress = () => {
-    // Navegar a la pantalla de filtros
     router.push("/search/filter");
   };
 
 
+  // --- RENDERIZADO (VISTAS DE CARGA Y ERROR) ---
 
-
-
-
-
-
-
-
-
-
-  // 1. ESTADO DE AUTENTICACIÓN 
-  const authContext = useContext(AuthContext);
-  const [isRegistering, setIsRegistering] = useState(false);
-
-  // 2. HOOKS
-  const navigation = useNavigation();
-  const { games, isLoading: gamesLoading, error } = useTopGames();
-
-  // PROTECCIÓN: Si el contexto aún no carga, mostramos carga y evitamos el crash
-  if (!authContext) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color={colors.primaryAccent} />
-      </View>
-    );
-  }
-
-  // Ahora es seguro desestructurar porque sabemos que authContext existe
-  const { userToken, isLoading: authLoading, logout, userInfo } = authContext;
-
-
-
-  // 3. EFECTO PARA OCULTAR/MOSTRAR LA BARRA DE TABS
-  useEffect(() => {
-    if (!userToken) {
-      // Si NO hay usuario (estamos en Login/Registro), ocultamos el Header y bloqueamos el swipe
-      navigation.setOptions({
-        headerShown: false,
-        swipeEnabled: false, // Evita que se abra el menú deslizando
-      });
-    } else {
-      // Si hay usuario, mostramos el Header y permitimos el swipe
-      navigation.setOptions({
-        headerShown: true,
-        swipeEnabled: true,
-        // El estilo del header ya se define en _layout, pero puedes sobreescribirlo aquí si quieres
-      });
-    }
-  }, [userToken, navigation]);
-
-
-
-  // --- LÓGICA DE DECISIÓN DE PANTALLA ---
-
-  // CASO 1: Verificando sesión
   if (authLoading) {
     return (
       <View style={styles.centered}>
@@ -120,15 +143,12 @@ export default function IndexScreen() {
     );
   }
 
-  // CASO 2: No hay usuario -> Login o Registro
   if (!userToken) {
     if (isRegistering) {
       return <RegisterScreen onLoginPress={() => setIsRegistering(false)} />;
     }
     return <LoginScreen onRegisterPress={() => setIsRegistering(true)} />;
   }
-
-  // CASO 3: Hay usuario -> App Principal
 
   if (gamesLoading) {
     return (
@@ -150,17 +170,13 @@ export default function IndexScreen() {
     );
   }
 
+  // Datos para las listas inferiores
   const trendingGames = games.slice(0, 10);
   const recommendedGames = games.slice(10, 20);
 
   return (
     <View style={{ flex: 1 }}>
-      {/* <View style={styles.header}>
-        <ThemedText style={styles.headerTitle}>Team Finder</ThemedText>
-        <TouchableOpacity onPress={logout} style={styles.logoutButton}>
-          <Ionicons name="log-out-outline" size={24} color={colors.primaryAccent} />
-        </TouchableOpacity>
-      </View> */}
+      
       <View style={styles.searchContainer}>
         <TouchableOpacity style={styles.searchBar} onPress={handleSearchPress}>
           <Ionicons name="search" size={20} color={colors.secondaryText} />
@@ -170,10 +186,37 @@ export default function IndexScreen() {
           </View>
         </TouchableOpacity>
       </View>
+
       <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
 
-        <GameListSection title="Tendencias" data={trendingGames} onGamePress={handleGamePress} />
-        <GameListSection title="Para ti" data={recommendedGames} onGamePress={handleGamePress} />
+        {/* --- SECCIÓN 1: MIS JUEGOS --- */}
+        {/* Solo se renderiza si tienes juegos en tu lista */}
+        {myGames.length > 0 && (
+            <GameListSection 
+                title="Mis Juegos" 
+                data={myGames} 
+                onGamePress={handleGamePress} 
+                // Pasamos función vacía porque aquí el corazón no es necesario para añadir (ya lo tienes)
+                onFavoritePress={() => {}} 
+                hidePlayerCount={true} // <--- ESTO OCULTA EL CONTADOR (Requiere cambio en GameCard)
+            />
+        )}
+
+        {/* SECCIÓN 2: TENDENCIAS */}
+        <GameListSection 
+            title="Tendencias" 
+            data={trendingGames} 
+            onGamePress={handleGamePress} 
+            onFavoritePress={handleAddToFavorites} // <--- Conectamos el corazón
+        />
+
+        {/* SECCIÓN 3: PARA TI */}
+        <GameListSection 
+            title="Para ti" 
+            data={recommendedGames} 
+            onGamePress={handleGamePress} 
+            onFavoritePress={handleAddToFavorites} // <--- Conectamos el corazón
+        />
 
         <View style={styles.section}>
           <ThemedText style={styles.sectionTitle}>Noticias</ThemedText>
@@ -181,6 +224,7 @@ export default function IndexScreen() {
             <ThemedText style={styles.adText}>Espacio Publicitario</ThemedText>
           </View>
         </View>
+
       </ScrollView>
     </View>
   );
@@ -261,19 +305,18 @@ const styles = StyleSheet.create({
   retryText: {
     color: colors.primaryText
   },
-  //PARA EL FILTRADO
-  // Estilos del Buscador Integrado
-searchContainer: {
+  // Estilos del Buscador
+  searchContainer: {
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#121212', // Coincide con el fondo general
+    backgroundColor: '#121212',
     borderBottomWidth: 1,
-    borderBottomColor: '#333', // Línea sutil gris oscura
+    borderBottomColor: '#333',
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#252525', // <--- GRIS OSCURO (Ya no será blanco)
+    backgroundColor: '#252525',
     paddingVertical: 12,
     paddingHorizontal: 15,
     borderRadius: 12,
@@ -282,16 +325,13 @@ searchContainer: {
   },
   placeholderText: {
     flex: 1,
-    color: '#aaa', // Texto gris claro
+    color: '#aaa',
     marginLeft: 10,
     fontSize: 14,
   },
   filterIcon: {
-    backgroundColor: colors.secondaryAccent || '#007AFF', // O tu color de acento
+    backgroundColor: colors.secondaryAccent || '#007AFF',
     padding: 6,
     borderRadius: 8,
-  }, 
- 
- 
-  
+  },
 });

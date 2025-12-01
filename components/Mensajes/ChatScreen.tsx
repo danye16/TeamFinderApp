@@ -86,6 +86,50 @@ export default function ChatScreen({ usuarioDestinoId, juegoId, nombreDestino }:
         }
     };
 
+    // Formatear hora de mensaje
+    const formatearFechaInteligente = (fechaISO: string) => {
+        if (!fechaISO) return '';
+
+        const fecha = new Date(fechaISO);
+        const ahora = new Date();
+
+        // Creamos copias de las fechas a las 00:00:00 para comparar solo los días, sin importar la hora
+        const hoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+        const fechaMensaje = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate());
+
+        // Calculamos la diferencia en milisegundos y la convertimos a días
+        const diferenciaTiempo = hoy.getTime() - fechaMensaje.getTime();
+        const diasDiferencia = Math.floor(diferenciaTiempo / (1000 * 3600 * 24));
+
+        // Formato base de la hora (HH:mm)
+        const horas = fecha.getHours().toString().padStart(2, '0');
+        const minutos = fecha.getMinutes().toString().padStart(2, '0');
+        const hora = `${horas}:${minutos}`;
+
+        // CASO 1: Es Hoy -> Solo la hora
+        if (diasDiferencia === 0) {
+            return hora;
+        }
+
+        // CASO 2: Es Ayer -> "Ayer HH:mm"
+        if (diasDiferencia === 1) {
+            return `Ayer ${hora}`;
+        }
+
+        // CASO 3: Es de esta semana (menos de 7 días) -> "Día HH:mm"
+        if (diasDiferencia > 1 && diasDiferencia < 7) {
+            const diasSemana = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+            const nombreDia = diasSemana[fecha.getDay()];
+            return `${nombreDia} ${hora}`;
+        }
+
+        // CASO 4: Es más antiguo -> Fecha completa DD/MM/YY
+        const dia = fecha.getDate().toString().padStart(2, '0');
+        const mes = (fecha.getMonth() + 1).toString().padStart(2, '0');
+        const anio = fecha.getFullYear().toString().slice(-2); // Solo los últimos 2 dígitos del año
+        return `${dia}/${mes}/${anio} ${hora}`;
+    };
+
     const refrescarEstadoMatch = async () => {
         try {
             // Reusamos crearMatch porque tu backend ya devuelve el match existente si lo encuentra
@@ -160,140 +204,82 @@ export default function ChatScreen({ usuarioDestinoId, juegoId, nombreDestino }:
     const headerHeight = useHeaderHeight();
 
 
-    // return (
-        
-    //     <KeyboardAvoidingView
-
-
-    //         behavior={Platform.OS === "ios" ? "padding" : "height"}
-
-    //         // OFFSET: Sumamos un valor extra (ej: 100) si headerHeight no es suficiente en Android.
-    //         // A veces headerHeight retorna 0 o un valor incorrecto en ciertas configuraciones de Android.
-    //         keyboardVerticalOffset={headerHeight + (Platform.OS === 'android' ? 30 : 0)}
-
-    //         // CHANGE 2: Ensure the background is explicitly dark so no white gaps appear
-    //         style={[styles.container, { backgroundColor: '#121212' }]}
-
-
-    //     >
-    //         {/* COMPONENTE COMPOSITE 1: Banner de estado */}
-    //         {matchInfo && (
-    //             <MatchBanner
-    //                 esConfirmado={matchInfo.matchConfirmado}
-    //                 necesitaAceptar={necesitaAceptar}
-    //                 onAceptar={handleAceptarMatch}
-    //                 onRechazar={handleRechazarMatch} // <--- Pasamos la nueva función
-    //             />
-    //         )}
-
-    //         <FlatList
-    //             contentContainerStyle={{
-    //                 flexDirection: 'column-reverse',
-    //                 padding: 10,
-    //                 paddingBottom: 20,
-    //                 flexGrow: 1 // Asegura que la lista empuje el contenido si es necesario
-    //             }}
-    //             data={mensajes}
-    //             keyExtractor={(item) => item.id.toString()}
-    //             inverted
-    //             renderItem={({ item }) => (
-    //                 <View style={[
-    //                     styles.burbuja,
-    //                     item.remitenteId === currentUserId ? styles.miMensaje : styles.otroMensaje
-    //                 ]}>
-    //                     <Text style={styles.textoMensaje}>{item.contenido}</Text>
-    //                 </View>
-    //             )}
-
-    //         />
-
-    //         <View style={styles.inputContainer}>
-    //             {esInputHabilitado ? (
-    //                 <>
-    //                     <TextInput
-    //                         style={styles.input}
-    //                         value={nuevoMensaje}
-    //                         onChangeText={setNuevoMensaje}
-    //                         placeholder="Escribe un mensaje..."
-    //                         placeholderTextColor="#888"
-    //                     />
-    //                     <TouchableOpacity onPress={handleEnviar} style={styles.sendButton}>
-    //                         <Ionicons name="send" size={20} color="white" />
-    //                     </TouchableOpacity>
-    //                 </>
-    //             ) : (
-    //                 <Text style={styles.textBloqueado}>
-    //                     {necesitaAceptar ? "Debes aceptar el match para responder" : "Esperando que acepten tu solicitud..."}
-    //                 </Text>
-    //             )}
-    //         </View>
-    //     </KeyboardAvoidingView>
-    // );
 
     return (
-    <SafeAreaView style={styles.safeArea}>
-        <KeyboardAvoidingView
-            style={styles.keyboardContainer}
-            // CAMBIO CLAVE: Usamos 'height' para Android y 'padding' para iOS
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            // El offset es necesario para iOS para compensar el header. En Android con 'height' no es necesario.
-            keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight : + 80}
-        >
-            {/* Banner de estado del Match */}
-            {matchInfo && (
-                <MatchBanner
-                    esConfirmado={matchInfo.matchConfirmado}
-                    necesitaAceptar={necesitaAceptar}
-                    onAceptar={handleAceptarMatch}
-                    onRechazar={handleRechazarMatch}
+        <SafeAreaView style={styles.safeArea}>
+            <KeyboardAvoidingView
+                style={styles.keyboardContainer}
+                // CAMBIO CLAVE: Usamos 'height' para Android y 'padding' para iOS
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                // El offset es necesario para iOS para compensar el header. En Android con 'height' no es necesario.
+                keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight : + 80}
+            >
+                {/* Banner de estado del Match */}
+                {matchInfo && (
+                    <MatchBanner
+                        esConfirmado={matchInfo.matchConfirmado}
+                        necesitaAceptar={necesitaAceptar}
+                        onAceptar={handleAceptarMatch}
+                        onRechazar={handleRechazarMatch}
+                    />
+                )}
+
+                {/* Lista de Mensajes */}
+                <FlatList
+                    style={styles.messagesList}
+                    contentContainerStyle={[styles.messagesListContent]}
+                    data={[...mensajes].reverse()}
+                    keyExtractor={(item) => item.id.toString()}
+                    inverted
+                    renderItem={({ item }) => (
+                        <View style={[
+                            styles.burbuja,
+                            item.remitenteId === currentUserId ? styles.miMensaje : styles.otroMensaje
+                        ]}>
+                            <Text style={styles.textoMensaje}>{item.contenido}</Text>
+                            <Text style={styles.horaMensaje}>
+                                {formatearFechaInteligente(item.fechaEnvio)}
+                            </Text>
+                        </View>
+                    )}
                 />
-            )}
 
-            {/* Lista de Mensajes */}
-            <FlatList
-                style={styles.messagesList}
-                contentContainerStyle={[styles.messagesListContent, { flexDirection: 'column-reverse' }]}
-                data={[...mensajes].reverse()}
-                keyExtractor={(item) => item.id.toString()}
-                inverted
-                renderItem={({ item }) => (
-                    <View style={[
-                        styles.burbuja,
-                        item.remitenteId === currentUserId ? styles.miMensaje : styles.otroMensaje
-                    ]}>
-                        <Text style={styles.textoMensaje}>{item.contenido}</Text>
-                    </View>
-                )}
-            />
-
-            {/* Contenedor del Input */}
-            <View style={styles.inputContainer}>
-                {esInputHabilitado ? (
-                    <>
-                        <TextInput
-                            style={styles.input}
-                            value={nuevoMensaje}
-                            onChangeText={setNuevoMensaje}
-                            placeholder="Escribe un mensaje..."
-                            placeholderTextColor="#888"
-                        />
-                        <TouchableOpacity onPress={handleEnviar} style={styles.sendButton}>
-                            <Ionicons name="send" size={20} color="white" />
-                        </TouchableOpacity>
-                    </>
-                ) : (
-                    <Text style={styles.textBloqueado}>
-                        {necesitaAceptar ? "Debes aceptar el match para responder" : "Esperando que acepten tu solicitud..."}
-                    </Text>
-                )}
-            </View>
-        </KeyboardAvoidingView>
-    </SafeAreaView>
-);
+                {/* Contenedor del Input */}
+                <View style={styles.inputContainer}>
+                    {esInputHabilitado ? (
+                        <>
+                            <TextInput
+                                style={styles.input}
+                                value={nuevoMensaje}
+                                onChangeText={setNuevoMensaje}
+                                placeholder="Escribe un mensaje..."
+                                placeholderTextColor="#888"
+                            />
+                            <TouchableOpacity onPress={handleEnviar} style={styles.sendButton}>
+                                <Ionicons name="send" size={20} color="white" />
+                            </TouchableOpacity>
+                        </>
+                    ) : (
+                        <Text style={styles.textBloqueado}>
+                            {necesitaAceptar ? "Debes aceptar el match para responder" : "Esperando que acepten tu solicitud..."}
+                        </Text>
+                    )}
+                </View>
+            </KeyboardAvoidingView>
+        </SafeAreaView>
+    );
 
 }
 const styles = StyleSheet.create({
+
     // Contenedor principal que ocupa toda la pantalla segura
+    horaMensaje: {
+        fontSize: 10,
+        color: 'rgba(255, 255, 255, 0.6)', // Blanco semi-transparente para que se vea sutil
+        alignSelf: 'flex-end', // Alinea a la derecha dentro de la burbuja
+        marginTop: 4,
+        marginBottom: -2 // Ajuste fino para que no ocupe mucho espacio extra
+    },
     safeArea: {
         flex: 1,
         backgroundColor: '#121212',
