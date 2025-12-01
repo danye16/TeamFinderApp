@@ -107,7 +107,7 @@ export const addGameToUser = async (userId: number, steamGame: Game) => {
 };
 
 // --- HELPER: BUSCAR JUEGO LOCAL ---
-const getLocalGameId = async (steamAppId: number): Promise<number | null> => {
+export const getLocalGameId = async (steamAppId: number): Promise<number | null> => {
   try {
     const response = await fetch(`${BASE_URL}/Juegos/BuscarPorSteamId/${steamAppId}`);
     if (response.ok) {

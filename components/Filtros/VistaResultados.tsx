@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useContext } from 'react';
-import { View, Text, FlatList, ActivityIndicator, StyleSheet, Image } from 'react-native';
+import { View, Text, FlatList, ActivityIndicator, StyleSheet, Image, Alert, TouchableOpacity } from 'react-native';
 import { AuthContext } from '@/components/Login/AuthContext';
-import { obtenerJugadoresDeMultiplesJuegos, PlayerMatch } from '@/components/services/userGame.service';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons'; // Importamos FontAwesome5 para el logo de Steam
 import { colors } from '@/constants/coloresVistaPrincipal';
-
+import { useRouter } from 'expo-router';
+import { obtenerJugadoresDeMultiplesJuegos, PlayerMatch, getLocalGameId } from '@/components/services/userGame.service';
 // Importamos el motor desde la misma carpeta
 import { 
     FiltroCompuestoY, 
@@ -18,10 +18,13 @@ interface Props {
     estiloFiltro: string;
 }
 
+// Componente principal
 export default function VistaResultados({ idsJuegos, estiloFiltro }: Props) {
+    // Accedemos al contexto para obtener el ID del usuario actual
     const { userInfo } = useContext(AuthContext)!;
     const [jugadores, setJugadores] = useState<PlayerMatch[]>([]);
     const [loading, setLoading] = useState(true);
+    const router = useRouter();
 
     useEffect(() => {
         const procesar = async () => {
@@ -66,6 +69,48 @@ export default function VistaResultados({ idsJuegos, estiloFiltro }: Props) {
             ? { uri: item.usuarioAvatarUrl }
             : { uri: `https://ui-avatars.com/api/?name=${item.usuarioUsername}&background=random&color=fff&size=128` };
 
+
+            const irAlChat = async () => {
+            // 1. Validar datos mínimos
+            if (!item.usuarioId) {
+                console.error("Error: El usuario destino no tiene ID");
+                return;
+            }
+
+            // 2. Determinar qué juego usar para el Match.
+            // Usamos el primer ID del filtro (steamAppId) como contexto.
+            const steamAppIdContexto = idsJuegos[0]; 
+
+            if (!steamAppIdContexto) {
+                Alert.alert("Error", "No hay un contexto de juego definido.");
+                return;
+            }
+
+            // 3. Obtener el ID LOCAL de la base de datos para ese juego de Steam
+            // Esto es crucial para que 'CrearMatch' funcione en el backend
+            try {
+                const idJuegoLocal = await getLocalGameId(steamAppIdContexto);
+
+                if (!idJuegoLocal) {
+                    Alert.alert("Error", "No se encontró el juego en la base de datos local para crear el match.");
+                    return;
+                }
+
+                // 4. Navegar con el ID correcto
+                router.push({
+                    pathname: "/chat/chat", // Verifica que coincida con tu estructura en app/
+                    params: { 
+                        usuarioDestinoId: item.usuarioId,
+                        juegoId: idJuegoLocal, // <--- Ahora sí enviamos el ID Local (FK)
+                        nombreDestino: item.usuarioUsername
+                    }
+                });
+
+            } catch (error) {
+                console.error("Error al preparar el chat:", error);
+                Alert.alert("Error", "No se pudo iniciar el chat.");
+            }
+        };
         return (
             <View style={styles.playerCard}>
                 {/* --- FOTO DE PERFIL CON INSIGNIA --- */}
@@ -106,7 +151,13 @@ export default function VistaResultados({ idsJuegos, estiloFiltro }: Props) {
                     </View>
                 </View>
                 
-                <Ionicons name="chatbubble-ellipses-outline" size={24} color={colors.secondaryText} />
+               <TouchableOpacity onPress={irAlChat} style={{padding: 5}}>
+                    <Ionicons 
+                        name="chatbubble-ellipses-outline" 
+                        size={24} 
+                        color={colors.primaryAccent} 
+                    />
+                </TouchableOpacity>
             </View>
         );
     };
