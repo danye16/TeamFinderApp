@@ -12,6 +12,7 @@ interface LocalGame {
   steamAppId: number;
 }
 
+// INTERFAZ PARA LOS JUGADORES QUE JUEGAN UN DETERMINADO JUEGO
 export interface PlayerMatch {
   id: number;
   usuarioId: number;
@@ -24,6 +25,15 @@ export interface PlayerMatch {
   usuarioAvatarUrl?: string;
     usuarioSteamId?: string;
 
+}
+
+// INTERFAZ BÁSICA PARA LISTAR JUEGOS
+export interface JuegoSimple {
+    id: number;
+    nombre: string;
+    categoria: string;
+    imagenUrl: string;
+    steamAppId: number;
 }
 
 
@@ -182,4 +192,19 @@ export const obtenerJugadoresDeMultiplesJuegos = async (steamAppIds: number[]): 
     console.error("Error buscando múltiples juegos:", error);
     return [];
   }
+};
+
+// 3. OBTENER JUEGOS SIMPLES DE UN USUARIO (GET)
+export const getJuegosDelUsuario = async (usuarioId: number): Promise<JuegoSimple[]> => {
+    try {
+        const response = await fetch(`${BASE_URL}/UsuarioJuegos/BuscarConUsuario/${usuarioId}`);
+        if (!response.ok) {
+            console.log("Error o sin juegos para usuario:", usuarioId);
+            return [];
+        }
+        return await response.json();
+    } catch (error) {
+        console.error("Error obteniendo juegos simples:", error);
+        return [];
+    }
 };

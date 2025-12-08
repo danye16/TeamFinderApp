@@ -174,6 +174,11 @@ export default function IndexScreen() {
   const trendingGames = games.slice(0, 10);
   const recommendedGames = games.slice(10, 20);
 
+  const myGameIds = myGames.map(g => g.appid);
+
+
+
+
   return (
     <View style={{ flex: 1 }}>
       
@@ -198,7 +203,8 @@ export default function IndexScreen() {
                 onGamePress={handleGamePress} 
                 // Pasamos función vacía porque aquí el corazón no es necesario para añadir (ya lo tienes)
                 onFavoritePress={() => {}} 
-                hidePlayerCount={true} // <--- ESTO OCULTA EL CONTADOR (Requiere cambio en GameCard)
+                hidePlayerCount={true}
+                favoriteIds={myGameIds} // <--- ESTO OCULTA EL CONTADOR (Requiere cambio en GameCard)
             />
         )}
 
@@ -208,6 +214,7 @@ export default function IndexScreen() {
             data={trendingGames} 
             onGamePress={handleGamePress} 
             onFavoritePress={handleAddToFavorites} // <--- Conectamos el corazón
+            favoriteIds={myGameIds}
         />
 
         {/* SECCIÓN 3: PARA TI */}
@@ -216,6 +223,7 @@ export default function IndexScreen() {
             data={recommendedGames} 
             onGamePress={handleGamePress} 
             onFavoritePress={handleAddToFavorites} // <--- Conectamos el corazón
+            favoriteIds={myGameIds}
         />
 
         <View style={styles.section}>

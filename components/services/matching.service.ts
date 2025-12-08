@@ -2,29 +2,57 @@
 
 const BASE_URL = 'https://teamfinderapiv2.somee.com/api';
 
-// Interfaces específicas de Matching
-export interface MatchStatus {
-    id: number;
-    matchConfirmado: boolean;
-    aceptadoPorUsuario1: boolean;
-    aceptadoPorUsuario2: boolean;
-    usuario1Id: number;
-    usuario2Id: number;
-    
-}
-
+// Usamos una interfaz unificada que sirva para todo
 export interface MatchDetalle {
     id: number;
-    usuario1: { id: number; username: string; avatarUrl?: string };
-    usuario2: { id: number; username: string; avatarUrl?: string };
+    // La API devuelve objetos anidados, así que los definimos aquí
+    usuario1: { id: number; username: string; avatarUrl?: string; pais?: string };
+    usuario2: { id: number; username: string; avatarUrl?: string; pais?: string };
     juego: { id: number; nombre: string; imagenUrl?: string };
     matchConfirmado: boolean;
     aceptadoPorUsuario1: boolean;
     aceptadoPorUsuario2: boolean;
+    fechaMatch?: string;
 }
 
 export const matchingService = {
-    // 1. Crear Match (o recuperar existente)
+    
+    // --- 1. Obtener TODOS los matches (Pendientes + Confirmados) ---
+    // Esta es la función clave que arregla el chat
+    async getMyMatches(usuarioId: number): Promise<MatchDetalle[]> {
+        try {
+            console.log(`[MATCHING_SERVICE] Buscando matches para ID: ${usuarioId}`);
+            
+            // Hacemos las dos peticiones en paralelo para ser más rápidos
+            const [resPendientes, resConfirmados] = await Promise.all([
+                fetch(`${BASE_URL}/Matches/Pendientes/${usuarioId}`),
+                fetch(`${BASE_URL}/Matches/Confirmados/${usuarioId}`)
+            ]);
+
+            let pendientes: MatchDetalle[] = [];
+            let confirmados: MatchDetalle[] = [];
+
+            if (resPendientes.ok) {
+                pendientes = await resPendientes.json();
+            }
+            
+            if (resConfirmados.ok) {
+                confirmados = await resConfirmados.json();
+            }
+
+            // Unimos las dos listas en una sola
+            const totalMatches = [...pendientes, ...confirmados];
+            console.log(`[MATCHING_SERVICE] Total encontrados: ${totalMatches.length} (${pendientes.length} pendientes, ${confirmados.length} confirmados)`);
+            
+            return totalMatches;
+
+        } catch (error) {
+            console.error('[MATCHING_SERVICE] Error obteniendo matches:', error);
+            return [];
+        }
+    },
+
+    // --- 2. Crear Match ---
     async crearMatch(usuario1Id: number, usuario2Id: number, juegoId: number) {
         try {
             const response = await fetch(`${BASE_URL}/Matches/CrearMatch`, {
@@ -34,12 +62,11 @@ export const matchingService = {
             });
 
             if (!response.ok) {
-                const errorText = await response.text();
-                console.warn("Advertencia al crear/recuperar match:", errorText);
-                // Si el backend devuelve texto plano por error, retornamos null
+                // Si ya existe o hay error, a veces devuelve texto
+                const errorText = await response.text(); 
+                console.warn("Info API:", errorText);
                 return null;
             }
-
             return await response.json();
         } catch (error) {
             console.error('Error al crear match:', error);
@@ -47,7 +74,7 @@ export const matchingService = {
         }
     },
 
-    // 2. Aceptar Match
+    // --- 3. Aceptar Match ---
     async aceptarMatch(matchId: number, usuarioId: number) {
         try {
             const response = await fetch(`${BASE_URL}/Matches/AceptarMatch/${matchId}/${usuarioId}`, {
@@ -60,7 +87,7 @@ export const matchingService = {
         }
     },
 
-    // 3. Rechazar Match
+    // --- 4. Rechazar Match ---
     async rechazarMatch(matchId: number, usuarioId: number) {
         try {
             const response = await fetch(`${BASE_URL}/Matches/RechazarMatch/${matchId}/${usuarioId}`, {
@@ -70,30 +97,6 @@ export const matchingService = {
         } catch (error) {
             console.error('Error al rechazar match:', error);
             return false;
-        }
-    },
-
-    // 4. Obtener Pendientes
-    async obtenerPendientes(usuarioId: number) {
-        try {
-            const response = await fetch(`${BASE_URL}/Matches/Pendientes/${usuarioId}`);
-            if (!response.ok) return [];
-            return await response.json() as MatchDetalle[];
-        } catch (error) {
-            console.error('Error fetching pendientes:', error);
-            return [];
-        }
-    },
-
-    // 5. Obtener Confirmados
-    async obtenerConfirmados(usuarioId: number) {
-        try {
-            const response = await fetch(`${BASE_URL}/Matches/Confirmados/${usuarioId}`);
-            if (!response.ok) return [];
-            return await response.json() as MatchDetalle[];
-        } catch (error) {
-            console.error('Error fetching confirmados:', error);
-            return [];
         }
     }
 };

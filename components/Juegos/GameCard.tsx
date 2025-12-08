@@ -1,44 +1,26 @@
 import React, { useState } from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View, Modal } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { Game } from '@/components/api/steamApi';
 import { colors } from '@/constants/coloresVistaPrincipal';
 
-// Props del componente GameCard
 interface GameCardProps {
   game: Game;
   onPress: (game: Game) => void;
-  onFavoritePress?: (game: Game) => void;
+  actionLabel?: string;
   hidePlayerCount?: boolean;
 }
 
-// Formatea números grandes con comas
 const formatNumber = (num: number): string => {
   return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 };
-// Componente GameCard
-const GameCard = ({ game, onPress, onFavoritePress, hidePlayerCount }: GameCardProps) => {
-  const [liked, setLiked] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
-  const handleHeartPress = () => {
-    setLiked(!liked); // Feedback visual inmediato
-    if (onFavoritePress) {
-      onFavoritePress(game);
-    }
-  };
 
-  // Renderizamos la tarjeta del juego
+const GameCard = ({ game, onPress, hidePlayerCount, actionLabel = "BUSCAR COMPAÑEROS" }: GameCardProps) => {
+  const [modalVisible, setModalVisible] = useState(false);
 
   return (
     <TouchableOpacity style={styles.card} onPress={() => setModalVisible(true)}>
-      {/* Imagen */}
-      <Image
-        source={{ uri: game.coverUrl }}
-        style={styles.cover}
-        resizeMode="cover"
-      />
+      <Image source={{ uri: game.coverUrl }} style={styles.cover} resizeMode="cover" />
 
-      {/* Info */}
       <View style={styles.infoContainer}>
         <Text style={styles.title} numberOfLines={2}>{game.name}</Text>
         {!hidePlayerCount && (
@@ -46,19 +28,7 @@ const GameCard = ({ game, onPress, onFavoritePress, hidePlayerCount }: GameCardP
         )}
       </View>
 
-      {/* Ícono de corazón */}
-      <TouchableOpacity
-        style={styles.iconContainer}
-        onPress={handleHeartPress}
-      >
-        <Ionicons
-          name={liked ? "heart" : "heart-outline"}
-          size={24}
-          color={liked ? colors.primaryAccent : colors.secondaryAccent}
-        />
-      </TouchableOpacity>
-
-      {/* Modal */}
+      {/* --- MODAL --- */}
       <Modal
         visible={modalVisible}
         transparent
@@ -68,15 +38,19 @@ const GameCard = ({ game, onPress, onFavoritePress, hidePlayerCount }: GameCardP
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>{game.name}</Text>
+            
+            {/* Este botón dispara la acción del padre (Registrar + Navegar) */}
             <TouchableOpacity
               style={styles.modalButton}
               onPress={() => {
-                onPress(game);
                 setModalVisible(false);
+                onPress(game); 
               }}
             >
-              <Text style={styles.modalButtonText}>Encontrar amigos</Text>
+              
+              <Text style={styles.modalButtonText}>{actionLabel}</Text>
             </TouchableOpacity>
+
             <TouchableOpacity
               style={styles.modalClose}
               onPress={() => setModalVisible(false)}
@@ -89,7 +63,7 @@ const GameCard = ({ game, onPress, onFavoritePress, hidePlayerCount }: GameCardP
     </TouchableOpacity>
   );
 };
-// Estilos del componente
+
 const styles = StyleSheet.create({
   card: {
     width: 160,
@@ -103,13 +77,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
   },
-  cover: {
-    width: '100%',
-    height: 90,
-  },
-  infoContainer: {
-    padding: 12,
-  },
+  cover: { width: '100%', height: 90 },
+  infoContainer: { padding: 12 },
   title: {
     color: colors.primaryText,
     fontSize: 14,
@@ -117,15 +86,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     textTransform: 'uppercase',
   },
-  playerCount: {
-    color: colors.secondaryText,
-    fontSize: 12,
-  },
-  iconContainer: {
-    alignItems: 'center',
-    marginBottom: 12,
-    padding: 5,
-  },
+  playerCount: { color: colors.secondaryText, fontSize: 12 },
+  
   // Modal estilos
   modalOverlay: {
     flex: 1,
@@ -148,6 +110,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 16,
     textTransform: 'uppercase',
+    textAlign: 'center'
   },
   modalButton: {
     backgroundColor: colors.primaryAccent,
@@ -155,19 +118,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 8,
     marginBottom: 12,
+    width: '100%',
+    alignItems: 'center'
   },
   modalButtonText: {
     color: colors.primaryText,
     fontWeight: 'bold',
     textTransform: 'uppercase',
   },
-  modalClose: {
-    marginTop: 8,
-  },
-  modalCloseText: {
-    color: colors.secondaryText,
-    fontSize: 14,
-  },
+  modalClose: { marginTop: 8 },
+  modalCloseText: { color: colors.secondaryText, fontSize: 14 },
 });
 
 export default GameCard;

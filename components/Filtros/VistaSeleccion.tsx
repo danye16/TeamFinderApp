@@ -6,7 +6,8 @@ import { AuthContext } from '@/components/Login/AuthContext';
 // Importamos la nueva función y la interfaz
 import { getGamesByUser, UserGame } from '@/components/services/userGame.service';
 
-const OPCIONES_ESTILOS = ["Competitivo", "Casual", "Hardcore", "Roleplay"];
+const OPCIONES_ESTILOS = ["Competitivo", "Casual", "Support", "Líder (IGL)",
+  "Aggressive (Entry)", "Estratega", "Solo Queue" ];
 
 export default function VistaSeleccion() {
     const { userInfo } = useContext(AuthContext)!;

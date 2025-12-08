@@ -8,7 +8,7 @@ import { Drawer } from 'expo-router/drawer';
 import React, { useCallback, useContext, useEffect, useState } from 'react';
 import { ActivityIndicator, Image, ImageBackground, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { GestureHandlerRootView, RefreshControl } from 'react-native-gesture-handler';
-
+import { useRouter } from 'expo-router';
 
 
 const DEFAULT_AVATAR = 'https://cdn-icons-png.flaticon.com/512/847/847969.png';
@@ -93,18 +93,68 @@ const DrawerFooter = ({ onLogout }: { onLogout: () => void }) => (
   </View>
 );
 
-// --- 3. CONTENIDO PRINCIPAL ---
+// --- 3. CONTENIDO PERSONALIZADO DEL DRAWER ---
+// Agregamos funcionalidad de refresco
+// para actualizar datos del usuario al deslizar hacia abajo
+// function CustomDrawerContent(props: any) {
+//   const [refreshing, setRefreshing] = useState(false);
+//   const { logout, refreshUserData } = useContext(AuthContext)!;
+//   const router = useRouter();
+
+//   // Función que se ejecuta al deslizar hacia abajo
+//   const onRefresh = useCallback(async () => {
+//     setRefreshing(true);
+//     // Llamamos a la función del contexto para recargar datos
+//     await refreshUserData();
+//     // Simulamos un pequeño delay para que se sienta la recarga si es muy rápida
+//     setTimeout(() => {
+//       setRefreshing(false);
+//     }, 500);
+//   }, [refreshUserData]);
+
+//   return (
+//     <View style={{ flex: 1 }}>
+//       <DrawerHeader />
+//       <DrawerContentScrollView
+//         {...props}
+//         contentContainerStyle={{ paddingTop: 10 }}
+//         style={{ flex: 1, backgroundColor: colors.primaryBackground }}
+//         // AQUI AGREGAMOS EL CONTROL DE REFRESCO
+//         refreshControl={
+//           <RefreshControl
+//             refreshing={refreshing}
+//             onRefresh={onRefresh}
+//             tintColor={colors.secondaryAccent} // Color del spinner en iOS
+//             colors={[colors.secondaryAccent]}  // Color del spinner en Android
+//             progressBackgroundColor={colors.cardBackground} // Fondo del spinner en Android
+//           />
+//         }
+//       >
+
+//         <DrawerItemList {...props} />
+//       </DrawerContentScrollView>
+//       <DrawerFooter onLogout={() => {
+//         // 1. Cerramos el Drawer explícitamente usando la prop navigation
+//         props.navigation.closeDrawer();
+
+//         // 2. Ejecutamos el logout
+//         logout();
+//         // 3. Redirigimos al usuario a la pantalla de inicio de sesión
+//         router.replace("/");
+//       }} />
+//     </View>
+//   );
+// }
+
 function CustomDrawerContent(props: any) {
   const [refreshing, setRefreshing] = useState(false);
   const { logout, refreshUserData } = useContext(AuthContext)!;
-
+  const router = useRouter(); // <--- 1. INSTANCIAR ROUTER AQUÍ
 
   // Función que se ejecuta al deslizar hacia abajo
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    // Llamamos a la función del contexto para recargar datos
     await refreshUserData();
-    // Simulamos un pequeño delay para que se sienta la recarga si es muy rápida
     setTimeout(() => {
       setRefreshing(false);
     }, 500);
@@ -117,26 +167,29 @@ function CustomDrawerContent(props: any) {
         {...props}
         contentContainerStyle={{ paddingTop: 10 }}
         style={{ flex: 1, backgroundColor: colors.primaryBackground }}
-        // AQUI AGREGAMOS EL CONTROL DE REFRESCO
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={colors.secondaryAccent} // Color del spinner en iOS
-            colors={[colors.secondaryAccent]}  // Color del spinner en Android
-            progressBackgroundColor={colors.cardBackground} // Fondo del spinner en Android
+            tintColor={colors.secondaryAccent}
+            colors={[colors.secondaryAccent]}
+            progressBackgroundColor={colors.cardBackground}
           />
         }
       >
-
         <DrawerItemList {...props} />
       </DrawerContentScrollView>
+      
       <DrawerFooter onLogout={() => {
-          // 1. Cerramos el Drawer explícitamente usando la prop navigation
+          // 1. Cerramos el Drawer
           props.navigation.closeDrawer();
           
-          // 2. Ejecutamos el logout
+          // 2. Ejecutamos el logout (limpia el token)
           logout();
+
+          // 3. FORZAMOS LA NAVEGACIÓN AL INICIO <--- AGREGAR ESTO
+          // Al ir a '/', index.tsx detectará que no hay token y mostrará el Login
+          router.replace("/"); 
       }} />
     </View>
   );
@@ -194,7 +247,7 @@ export default function DrawerLayout() {
         <Drawer.Screen
           name="favorites"
           options={{
-            drawerLabel: "FAVORITOS",
+            drawerLabel: "TUS JUEGOS",
             title: "Biblioteca",
             drawerIcon: ({ color }) => <Ionicons name="heart" size={22} color={color} />,
           }}

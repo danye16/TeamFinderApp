@@ -11,9 +11,10 @@ interface GameListSectionProps {
   onGamePress: (game: Game) => void;
   onFavoritePress: (game: Game) => void;
   hidePlayerCount?: boolean;
+  favoriteIds?: number[];
 }
 
-const GameListSection = ({ title, data, onGamePress, onFavoritePress, hidePlayerCount }: GameListSectionProps) => {
+const GameListSection = ({ title, data, onGamePress, onFavoritePress, hidePlayerCount, favoriteIds = [] }: GameListSectionProps) => {
   return (
     <View style={styles.section}>
       <ThemedText style={styles.sectionTitle}>{title}</ThemedText>
@@ -23,7 +24,8 @@ const GameListSection = ({ title, data, onGamePress, onFavoritePress, hidePlayer
         renderItem={({ item }) => (
           <GameCard game={item} onPress={onGamePress}
             onFavoritePress={onFavoritePress}
-            hidePlayerCount={hidePlayerCount} />
+            hidePlayerCount={hidePlayerCount}
+            isLiked={favoriteIds.includes(item.appid)} />
         )}
         keyExtractor={(item) => item.appid.toString()}
         showsHorizontalScrollIndicator={false}

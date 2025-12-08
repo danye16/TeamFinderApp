@@ -7,7 +7,7 @@ import { router, useNavigation } from 'expo-router';
 import React, { useContext, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { matchingService, MatchStatus } from '../services/matching.service';
+import { matchingService, MatchDetalle } from '../services/matching.service';
 import { Mensaje, mensajesService } from '../services/mensajes.service';
 import { MatchBanner } from './MatchBanner';
 interface ChatScreenProps {
@@ -23,20 +23,10 @@ export default function ChatScreen({ usuarioDestinoId, juegoId, nombreDestino }:
 
     const [mensajes, setMensajes] = useState<Mensaje[]>([]);
     const [nuevoMensaje, setNuevoMensaje] = useState('');
-    const [matchInfo, setMatchInfo] = useState<MatchStatus | null>(null);
+    const [matchInfo, setMatchInfo] = useState<MatchDetalle | null>(null);
     const [cargando, setCargando] = useState(true);
     const navigation = useNavigation();
-    // useEffect(() => {
-    //     if (currentUserId) {
-    //         cargarDatos();
-    //     }
-    //     const intervalo = setInterval(() => {
-    //         if (currentUserId) cargarConversacion();
-
-    //     }, 5000);
-    //     refrescarEstadoMatch();
-    //     return () => clearInterval(intervalo);
-    // }, [currentUserId]);
+    
     useEffect(() => {
         navigation.setOptions({
             // Título principal (Nombre del usuario)
@@ -55,21 +45,88 @@ export default function ChatScreen({ usuarioDestinoId, juegoId, nombreDestino }:
             headerTintColor: colors.primaryAccent, // Color de la flecha de volver
         });
     }, [nombreDestino, navigation]);
-    useEffect(() => {
-        if (currentUserId) {
-            cargarDatos(); // Carga inicial
-        }
+    // useEffect(() => {
+    //     if (currentUserId) {
+    //         cargarDatos(); // Carga inicial
+    //     }
 
-        // Intervalo para refrescar mensajes y estado del match
-        const intervalo = setInterval(() => {
-            if (currentUserId) {
-                cargarConversacion();
-                refrescarEstadoMatch(); // Para ver si el otro usuario aceptó
+    //     // Intervalo para refrescar mensajes y estado del match
+    //     const intervalo = setInterval(() => {
+    //         if (currentUserId) {
+    //             cargarConversacion();
+    //             refrescarEstadoMatch(); // Para ver si el otro usuario aceptó
+    //         }
+    //     }, 3000); // 3 segundos
+
+    //     return () => clearInterval(intervalo);
+    // }, [currentUserId]);
+
+
+useEffect(() => {
+        let isMounted = true;
+
+        const inicializarChat = async () => {
+            if (!currentUserId) return;
+            
+            try {
+                setCargando(true);
+                
+                // 1. Usamos el servicio unificado que trae pendientes Y confirmados
+                const todosMisMatches = await matchingService.getMyMatches(currentUserId);
+                
+                // 2. Buscamos el match específico para este juego
+                let matchEncontrado = todosMisMatches.find(m => 
+                    m.juego.id === juegoId && 
+                    (m.usuario1.id === usuarioDestinoId || m.usuario2.id === usuarioDestinoId)
+                );
+
+                // 3. Fallback: Si no hay match en este juego, buscamos si ya somos amigos en otro (solo confirmados)
+                if (!matchEncontrado) {
+                    matchEncontrado = todosMisMatches.find(m => 
+                        m.matchConfirmado && 
+                        (m.usuario1.id === usuarioDestinoId || m.usuario2.id === usuarioDestinoId)
+                    );
+                }
+
+                if (isMounted) {
+                    if (matchEncontrado) {
+                        console.log(`Chat encontrado (ID: ${matchEncontrado.id})`);
+                        setMatchInfo(matchEncontrado);
+                        // Cargar mensajes
+                        const historial = await mensajesService.obtenerConversacion(currentUserId, usuarioDestinoId);
+                        setMensajes(historial);
+                    } else {
+                        console.log("No hay match previo. Se creará al enviar el primer mensaje.");
+                        setMatchInfo(null);
+                    }
+                }
+            } catch (error) {
+                console.error("Error al inicializar chat:", error);
+            } finally {
+                if (isMounted) setCargando(false);
             }
-        }, 3000); // 3 segundos
+        };
 
-        return () => clearInterval(intervalo);
-    }, [currentUserId]);
+        inicializarChat();
+
+        // Polling para nuevos mensajes
+        const interval = setInterval(async () => {
+            if (currentUserId && usuarioDestinoId) {
+                // Solo recargamos mensajes, no el match completo todo el tiempo
+                const msjs = await mensajesService.obtenerConversacion(currentUserId, usuarioDestinoId);
+                if (isMounted) setMensajes(msjs);
+            }
+        }, 3000);
+
+        return () => { 
+            isMounted = false; 
+            clearInterval(interval);
+        };
+    }, [currentUserId, usuarioDestinoId, juegoId]);
+
+
+
+
 
     const cargarDatos = async () => {
         if (!currentUserId) return;
@@ -193,8 +250,8 @@ export default function ChatScreen({ usuarioDestinoId, juegoId, nombreDestino }:
 
     // Lógica de bloqueo (Requerimiento escolar)
     const necesitaAceptar = matchInfo
-        ? (matchInfo.usuario1Id === currentUserId && !matchInfo.aceptadoPorUsuario1) ||
-        (matchInfo.usuario2Id === currentUserId && !matchInfo.aceptadoPorUsuario2)
+        ? (matchInfo.usuario1.id === currentUserId && !matchInfo.aceptadoPorUsuario1) || // Usamos .id porque MatchDetalle tiene objetos
+          (matchInfo.usuario2.id === currentUserId && !matchInfo.aceptadoPorUsuario2)
         : false;
 
     // Solo se habilita si está confirmado O si yo ya acepté (estoy esperando al otro)
