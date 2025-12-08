@@ -18,8 +18,12 @@ export default function ListaChats() {
   const cargarChats = async () => {
     if (!userInfo?.id) return;
     try {
-      const pendientes = await matchingService.obtenerPendientes(userInfo.id);
-      const confirmados = await matchingService.obtenerConfirmados(userInfo.id);
+      // Usamos getMyMatches que ya trae TODO (pendientes y confirmados)
+      const todosLosMatches = await matchingService.getMyMatches(userInfo.id);
+
+      // Filtramos en el cliente:
+      const pendientes = todosLosMatches.filter(m => !m.matchConfirmado);
+      const confirmados = todosLosMatches.filter(m => m.matchConfirmado);
 
       const seccionesData = [];
 

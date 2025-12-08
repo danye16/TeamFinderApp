@@ -93,58 +93,8 @@ const DrawerFooter = ({ onLogout }: { onLogout: () => void }) => (
   </View>
 );
 
-// --- 3. CONTENIDO PERSONALIZADO DEL DRAWER ---
-// Agregamos funcionalidad de refresco
-// para actualizar datos del usuario al deslizar hacia abajo
-// function CustomDrawerContent(props: any) {
-//   const [refreshing, setRefreshing] = useState(false);
-//   const { logout, refreshUserData } = useContext(AuthContext)!;
-//   const router = useRouter();
 
-//   // Función que se ejecuta al deslizar hacia abajo
-//   const onRefresh = useCallback(async () => {
-//     setRefreshing(true);
-//     // Llamamos a la función del contexto para recargar datos
-//     await refreshUserData();
-//     // Simulamos un pequeño delay para que se sienta la recarga si es muy rápida
-//     setTimeout(() => {
-//       setRefreshing(false);
-//     }, 500);
-//   }, [refreshUserData]);
 
-//   return (
-//     <View style={{ flex: 1 }}>
-//       <DrawerHeader />
-//       <DrawerContentScrollView
-//         {...props}
-//         contentContainerStyle={{ paddingTop: 10 }}
-//         style={{ flex: 1, backgroundColor: colors.primaryBackground }}
-//         // AQUI AGREGAMOS EL CONTROL DE REFRESCO
-//         refreshControl={
-//           <RefreshControl
-//             refreshing={refreshing}
-//             onRefresh={onRefresh}
-//             tintColor={colors.secondaryAccent} // Color del spinner en iOS
-//             colors={[colors.secondaryAccent]}  // Color del spinner en Android
-//             progressBackgroundColor={colors.cardBackground} // Fondo del spinner en Android
-//           />
-//         }
-//       >
-
-//         <DrawerItemList {...props} />
-//       </DrawerContentScrollView>
-//       <DrawerFooter onLogout={() => {
-//         // 1. Cerramos el Drawer explícitamente usando la prop navigation
-//         props.navigation.closeDrawer();
-
-//         // 2. Ejecutamos el logout
-//         logout();
-//         // 3. Redirigimos al usuario a la pantalla de inicio de sesión
-//         router.replace("/");
-//       }} />
-//     </View>
-//   );
-// }
 
 function CustomDrawerContent(props: any) {
   const [refreshing, setRefreshing] = useState(false);
@@ -253,11 +203,13 @@ export default function DrawerLayout() {
           }}
         />
         <Drawer.Screen
-          name="stats"
+          name="events" 
           options={{
-            drawerLabel: "ESTADÍSTICAS",
-            title: "Rendimiento",
-            drawerIcon: ({ color }) => <Ionicons name="stats-chart" size={22} color={color} />,
+            drawerLabel: "EVENTOS / TORNEOS",
+            title: "Torneos Disponibles",
+            // Icono de trofeo para destacar la competición
+            drawerIcon: ({ color }) => <Ionicons name="trophy" size={22} color={color} />,
+            
           }}
         />
 
