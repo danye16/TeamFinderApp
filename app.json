@@ -4,7 +4,7 @@
     "slug": "TeamFinderApp",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "logo\\puroIcono.png",
+    "icon": "./logo/puroIcono.png",
     "scheme": "teamfinderapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,

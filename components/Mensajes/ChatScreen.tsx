@@ -1,15 +1,15 @@
-// components/Mensajes/ChatScreen.tsx
-import { AuthContext } from '@/components/Login/AuthContext'; // Tu contexto real
-import { colors } from '@/constants/coloresVistaPrincipal'; // Usando tus constantes
+import { AuthContext } from '@/components/Login/AuthContext';
+import { colors } from '@/constants/coloresVistaPrincipal';
 import { Ionicons } from '@expo/vector-icons';
 import { useHeaderHeight } from '@react-navigation/elements';
 import { router, useNavigation } from 'expo-router';
 import React, { useContext, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { matchingService, MatchDetalle } from '../services/matching.service';
+import { MatchDetalle, matchingService } from '../services/matching.service';
 import { Mensaje, mensajesService } from '../services/mensajes.service';
 import { MatchBanner } from './MatchBanner';
+
 interface ChatScreenProps {
     usuarioDestinoId: number;
     juegoId: number;
@@ -17,208 +17,110 @@ interface ChatScreenProps {
 }
 
 export default function ChatScreen({ usuarioDestinoId, juegoId, nombreDestino }: ChatScreenProps) {
-    // CORRECCIÓN AQUÍ: Usamos 'userInfo' en lugar de 'user'
+    // 1. HOOKS PRIMERO (Siempre arriba)
     const context = useContext(AuthContext);
     const currentUserId = context?.userInfo?.id;
+    const navigation = useNavigation();
+    const headerHeight = useHeaderHeight(); // <--- MOVIDO AQUÍ (Arregla el error de Hooks)
 
     const [mensajes, setMensajes] = useState<Mensaje[]>([]);
     const [nuevoMensaje, setNuevoMensaje] = useState('');
     const [matchInfo, setMatchInfo] = useState<MatchDetalle | null>(null);
     const [cargando, setCargando] = useState(true);
-    const navigation = useNavigation();
-    
-    useEffect(() => {
-        navigation.setOptions({
-            // Título principal (Nombre del usuario)
-            title: nombreDestino || 'Chat',
-            // Subtítulo o info extra (depende de la versión de React Navigation, 
-            // si no soporta 'headerTitle' complejo, usa solo 'title').
-            // Una opción elegante es poner el nombre del juego en el headerBackTitle o similar.
-            headerTitleStyle: {
-                fontSize: 18,
-                fontWeight: 'bold',
-                color: 'white' // Asegura que se vea en fondo oscuro
-            },
-            headerStyle: {
-                backgroundColor: '#121212', // Color de fondo de la barra
-            },
-            headerTintColor: colors.primaryAccent, // Color de la flecha de volver
-        });
-    }, [nombreDestino, navigation]);
-    // useEffect(() => {
-    //     if (currentUserId) {
-    //         cargarDatos(); // Carga inicial
-    //     }
 
-    //     // Intervalo para refrescar mensajes y estado del match
-    //     const intervalo = setInterval(() => {
-    //         if (currentUserId) {
-    //             cargarConversacion();
-    //             refrescarEstadoMatch(); // Para ver si el otro usuario aceptó
-    //         }
-    //     }, 3000); // 3 segundos
-
-    //     return () => clearInterval(intervalo);
-    // }, [currentUserId]);
-
-
-useEffect(() => {
-        let isMounted = true;
-
-        const inicializarChat = async () => {
-            if (!currentUserId) return;
+    // 2. FUNCIÓN DE CARGA (Definida fuera del useEffect para reusarla)
+    const inicializarChat = async (esRecarga = false) => {
+        if (!currentUserId) return;
+        
+        try {
+            if (!esRecarga) setCargando(true);
             
-            try {
-                setCargando(true);
-                
-                // 1. Usamos el servicio unificado que trae pendientes Y confirmados
-                const todosMisMatches = await matchingService.getMyMatches(currentUserId);
-                
-                // 2. Buscamos el match específico para este juego
-                let matchEncontrado = todosMisMatches.find(m => 
-                    m.juego.id === juegoId && 
+            // a. Traemos matches confirmados y pendientes
+            const todosMisMatches = await matchingService.getMyMatches(currentUserId);
+            
+            // b. Buscamos el match de este juego
+            let matchEncontrado = todosMisMatches.find(m => 
+                m.juego.id === juegoId && 
+                (m.usuario1.id === usuarioDestinoId || m.usuario2.id === usuarioDestinoId)
+            );
+
+            // c. Fallback: buscar si ya son amigos en general
+            if (!matchEncontrado) {
+                matchEncontrado = todosMisMatches.find(m => 
+                    m.matchConfirmado && 
                     (m.usuario1.id === usuarioDestinoId || m.usuario2.id === usuarioDestinoId)
                 );
-
-                // 3. Fallback: Si no hay match en este juego, buscamos si ya somos amigos en otro (solo confirmados)
-                if (!matchEncontrado) {
-                    matchEncontrado = todosMisMatches.find(m => 
-                        m.matchConfirmado && 
-                        (m.usuario1.id === usuarioDestinoId || m.usuario2.id === usuarioDestinoId)
-                    );
-                }
-
-                if (isMounted) {
-                    if (matchEncontrado) {
-                        console.log(`Chat encontrado (ID: ${matchEncontrado.id})`);
-                        setMatchInfo(matchEncontrado);
-                        // Cargar mensajes
-                        const historial = await mensajesService.obtenerConversacion(currentUserId, usuarioDestinoId);
-                        setMensajes(historial);
-                    } else {
-                        console.log("No hay match previo. Se creará al enviar el primer mensaje.");
-                        setMatchInfo(null);
-                    }
-                }
-            } catch (error) {
-                console.error("Error al inicializar chat:", error);
-            } finally {
-                if (isMounted) setCargando(false);
             }
-        };
 
-        inicializarChat();
+            if (matchEncontrado) {
+                console.log(`[Chat] Match encontrado: ${matchEncontrado.id}`);
+                setMatchInfo(matchEncontrado);
+                const historial = await mensajesService.obtenerConversacion(currentUserId, usuarioDestinoId);
+                setMensajes(historial);
+            } else {
+                console.log("[Chat] No hay match previo (se creará al enviar mensaje).");
+                setMatchInfo(null);
+            }
+        } catch (error) {
+            console.error("[Chat] Error inicializando:", error);
+        } finally {
+            if (!esRecarga) setCargando(false);
+        }
+    };
 
-        // Polling para nuevos mensajes
+    // 3. EFECTOS
+    useEffect(() => {
+        navigation.setOptions({
+            title: nombreDestino || 'Chat',
+            headerTitleStyle: { fontSize: 18, fontWeight: 'bold', color: 'white' },
+            headerStyle: { backgroundColor: '#121212' },
+            headerTintColor: colors.primaryAccent,
+        });
+    }, [nombreDestino, navigation]);
+
+    useEffect(() => {
+        inicializarChat(); // Carga inicial
+
+        // Polling para mensajes nuevos
         const interval = setInterval(async () => {
             if (currentUserId && usuarioDestinoId) {
-                // Solo recargamos mensajes, no el match completo todo el tiempo
                 const msjs = await mensajesService.obtenerConversacion(currentUserId, usuarioDestinoId);
-                if (isMounted) setMensajes(msjs);
+                setMensajes(msjs);
             }
         }, 3000);
 
-        return () => { 
-            isMounted = false; 
-            clearInterval(interval);
-        };
+        return () => clearInterval(interval);
     }, [currentUserId, usuarioDestinoId, juegoId]);
 
-
-
-
-
-    const cargarDatos = async () => {
-        if (!currentUserId) return;
-        try {
-            const match = await matchingService.crearMatch(currentUserId, usuarioDestinoId, juegoId);
-            if (match) {
-                setMatchInfo(match);
-                await cargarConversacion();
-            }
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setCargando(false);
-        }
-    };
-
-    // Formatear hora de mensaje
-    const formatearFechaInteligente = (fechaISO: string) => {
-        if (!fechaISO) return '';
-
-        const fecha = new Date(fechaISO);
-        const ahora = new Date();
-
-        // Creamos copias de las fechas a las 00:00:00 para comparar solo los días, sin importar la hora
-        const hoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
-        const fechaMensaje = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate());
-
-        // Calculamos la diferencia en milisegundos y la convertimos a días
-        const diferenciaTiempo = hoy.getTime() - fechaMensaje.getTime();
-        const diasDiferencia = Math.floor(diferenciaTiempo / (1000 * 3600 * 24));
-
-        // Formato base de la hora (HH:mm)
-        const horas = fecha.getHours().toString().padStart(2, '0');
-        const minutos = fecha.getMinutes().toString().padStart(2, '0');
-        const hora = `${horas}:${minutos}`;
-
-        // CASO 1: Es Hoy -> Solo la hora
-        if (diasDiferencia === 0) {
-            return hora;
-        }
-
-        // CASO 2: Es Ayer -> "Ayer HH:mm"
-        if (diasDiferencia === 1) {
-            return `Ayer ${hora}`;
-        }
-
-        // CASO 3: Es de esta semana (menos de 7 días) -> "Día HH:mm"
-        if (diasDiferencia > 1 && diasDiferencia < 7) {
-            const diasSemana = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-            const nombreDia = diasSemana[fecha.getDay()];
-            return `${nombreDia} ${hora}`;
-        }
-
-        // CASO 4: Es más antiguo -> Fecha completa DD/MM/YY
-        const dia = fecha.getDate().toString().padStart(2, '0');
-        const mes = (fecha.getMonth() + 1).toString().padStart(2, '0');
-        const anio = fecha.getFullYear().toString().slice(-2); // Solo los últimos 2 dígitos del año
-        return `${dia}/${mes}/${anio} ${hora}`;
-    };
-
-    const refrescarEstadoMatch = async () => {
-        try {
-            // Reusamos crearMatch porque tu backend ya devuelve el match existente si lo encuentra
-            const match = await matchingService.crearMatch(currentUserId!, usuarioDestinoId, juegoId);
-            if (match) {
-                // Solo actualizamos si hubo cambios para evitar re-renders innecesarios
-                setMatchInfo(prev => {
-                    if (JSON.stringify(prev) !== JSON.stringify(match)) {
-                        return match;
-                    }
-                    return prev;
-                });
-            }
-        } catch (e) {
-            console.log("Error refrescando status", e);
-        }
-    };
-    const cargarConversacion = async () => {
-        if (!currentUserId) return;
-        const msjs = await mensajesService.obtenerConversacion(currentUserId, usuarioDestinoId);
-        setMensajes(msjs);
-    };
-
+    // 4. MANEJADORES
     const handleEnviar = async () => {
         if (!nuevoMensaje.trim() || !currentUserId) return;
 
         try {
+            // LÓGICA LAZY MATCH: Si no hay match, lo creamos primero
+            if (!matchInfo) {
+                console.log("[HandleEnviar] Creando match inicial...");
+                const nuevoMatchSimple = await matchingService.crearMatch(currentUserId, usuarioDestinoId, juegoId);
+                
+                if (!nuevoMatchSimple) throw new Error("Error creando el match.");
+
+                // TRUCO IMPORTANTE:
+                // No usamos 'nuevoMatchSimple' directamente porque le faltan datos (usuario1, usuario2).
+                // En su lugar, recargamos todo desde el servidor para obtener el objeto completo.
+                await inicializarChat(true); 
+            }
+
+            // Enviamos el mensaje
             await mensajesService.enviarMensaje(currentUserId, usuarioDestinoId, nuevoMensaje);
             setNuevoMensaje('');
-            cargarConversacion();
+            
+            // Actualizamos la conversación
+            const msjs = await mensajesService.obtenerConversacion(currentUserId, usuarioDestinoId);
+            setMensajes(msjs);
+
         } catch (error: any) {
-            alert(error.message || "Error al enviar mensaje");
+            console.error("Error al enviar:", error);
+            alert("No se pudo enviar el mensaje.");
         }
     };
 
@@ -226,52 +128,42 @@ useEffect(() => {
         if (!matchInfo || !currentUserId) return;
         const exito = await matchingService.aceptarMatch(matchInfo.id, currentUserId);
         if (exito) {
-            setMatchInfo({ ...matchInfo, matchConfirmado: true });
+            // Recargamos para actualizar el estado visual
+            inicializarChat(true);
         }
     };
 
-    // Rechazar Match
     const handleRechazarMatch = async () => {
         if (!matchInfo || !currentUserId) return;
-
-        // Opcional: Mostrar alerta de confirmación antes
         const exito = await matchingService.rechazarMatch(matchInfo.id, currentUserId);
-
-        if (exito) {
-            alert("Match rechazado");
-            router.back(); // Regresar a la lista anterior
-        } else {
-            alert("Error al rechazar");
-        }
+        if (exito) router.back();
     };
 
-    if (!currentUserId) return <View style={styles.center}><Text style={{ color: 'white' }}>Error de sesión</Text></View>;
+    const formatearFecha = (fechaISO: string) => {
+        if (!fechaISO) return '';
+        const fecha = new Date(fechaISO);
+        return `${fecha.getHours().toString().padStart(2, '0')}:${fecha.getMinutes().toString().padStart(2, '0')}`;
+    };
+
+    // 5. VALIDACIONES DE RENDERIZADO
+    if (!currentUserId) return <View style={styles.center}><Text style={{ color: 'white' }}>Sesión no válida</Text></View>;
     if (cargando) return <View style={styles.center}><ActivityIndicator size="large" color={colors.primaryAccent} /></View>;
 
-    // Lógica de bloqueo (Requerimiento escolar)
-    const necesitaAceptar = matchInfo
-        ? (matchInfo.usuario1.id === currentUserId && !matchInfo.aceptadoPorUsuario1) || // Usamos .id porque MatchDetalle tiene objetos
+    // Lógica segura para saber si necesito aceptar (usando ? para evitar crash)
+    const necesitaAceptar = matchInfo?.usuario1 && matchInfo?.usuario2
+        ? (matchInfo.usuario1.id === currentUserId && !matchInfo.aceptadoPorUsuario1) ||
           (matchInfo.usuario2.id === currentUserId && !matchInfo.aceptadoPorUsuario2)
         : false;
 
-    // Solo se habilita si está confirmado O si yo ya acepté (estoy esperando al otro)
-    // Si yo soy el que falta aceptar, está bloqueado.
     const esInputHabilitado = matchInfo?.matchConfirmado || !necesitaAceptar;
-
-    const headerHeight = useHeaderHeight();
-
-
 
     return (
         <SafeAreaView style={styles.safeArea}>
             <KeyboardAvoidingView
                 style={styles.keyboardContainer}
-                // CAMBIO CLAVE: Usamos 'height' para Android y 'padding' para iOS
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                // El offset es necesario para iOS para compensar el header. En Android con 'height' no es necesario.
-                keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight : + 80}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight : 80}
             >
-                {/* Banner de estado del Match */}
                 {matchInfo && (
                     <MatchBanner
                         esConfirmado={matchInfo.matchConfirmado}
@@ -281,10 +173,9 @@ useEffect(() => {
                     />
                 )}
 
-                {/* Lista de Mensajes */}
                 <FlatList
                     style={styles.messagesList}
-                    contentContainerStyle={[styles.messagesListContent]}
+                    contentContainerStyle={styles.messagesListContent}
                     data={[...mensajes].reverse()}
                     keyExtractor={(item) => item.id.toString()}
                     inverted
@@ -294,14 +185,11 @@ useEffect(() => {
                             item.remitenteId === currentUserId ? styles.miMensaje : styles.otroMensaje
                         ]}>
                             <Text style={styles.textoMensaje}>{item.contenido}</Text>
-                            <Text style={styles.horaMensaje}>
-                                {formatearFechaInteligente(item.fechaEnvio)}
-                            </Text>
+                            <Text style={styles.horaMensaje}>{formatearFecha(item.fechaEnvio)}</Text>
                         </View>
                     )}
                 />
 
-                {/* Contenedor del Input */}
                 <View style={styles.inputContainer}>
                     {esInputHabilitado ? (
                         <>
@@ -318,52 +206,28 @@ useEffect(() => {
                         </>
                     ) : (
                         <Text style={styles.textBloqueado}>
-                            {necesitaAceptar ? "Debes aceptar el match para responder" : "Esperando que acepten tu solicitud..."}
+                            {necesitaAceptar ? "Acepta el match para responder" : "Esperando respuesta..."}
                         </Text>
                     )}
                 </View>
             </KeyboardAvoidingView>
         </SafeAreaView>
     );
-
 }
-const styles = StyleSheet.create({
 
-    // Contenedor principal que ocupa toda la pantalla segura
-    horaMensaje: {
-        fontSize: 10,
-        color: 'rgba(255, 255, 255, 0.6)', // Blanco semi-transparente para que se vea sutil
-        alignSelf: 'flex-end', // Alinea a la derecha dentro de la burbuja
-        marginTop: 4,
-        marginBottom: -2 // Ajuste fino para que no ocupe mucho espacio extra
-    },
-    safeArea: {
-        flex: 1,
-        backgroundColor: '#121212',
-    },
-    // Contenedor que evita el teclado
-    keyboardContainer: {
-        flex: 1,
-    },
-    // Estilos de la lista de mensajes
-    messagesList: {
-        flex: 1,
-        backgroundColor: '#121212', // Asegura que el fondo de la lista sea oscuro
-    },
-    messagesListContent: {
-        paddingHorizontal: 10,
-        paddingVertical: 5, // Un poco de padding vertical
-    },
-    // Estilos de las burbujas de chat (sin cambios)
+const styles = StyleSheet.create({
+    safeArea: { flex: 1, backgroundColor: '#121212' },
+    keyboardContainer: { flex: 1 },
+    messagesList: { flex: 1, backgroundColor: '#121212' },
+    messagesListContent: { paddingHorizontal: 10, paddingVertical: 5 },
     burbuja: { padding: 12, borderRadius: 18, marginVertical: 4, maxWidth: '75%' },
     miMensaje: { backgroundColor: colors.primaryAccent, alignSelf: 'flex-end', borderBottomRightRadius: 2 },
     otroMensaje: { backgroundColor: '#333', alignSelf: 'flex-start', borderBottomLeftRadius: 2 },
     textoMensaje: { color: 'white', fontSize: 15 },
-    // Estilos del input y botón (sin cambios)
+    horaMensaje: { fontSize: 10, color: 'rgba(255,255,255,0.6)', alignSelf: 'flex-end', marginTop: 4 },
     inputContainer: { flexDirection: 'row', padding: 10, backgroundColor: '#1E1E1E', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#333' },
     input: { flex: 1, backgroundColor: '#2C2C2C', color: 'white', borderRadius: 20, paddingHorizontal: 15, paddingVertical: 10, marginRight: 10, fontSize: 16 },
     sendButton: { backgroundColor: colors.primaryAccent, padding: 10, borderRadius: 25 },
     textBloqueado: { color: '#888', textAlign: 'center', width: '100%', padding: 10, fontStyle: 'italic' },
-    // Estilos para estados de carga y error (sin cambios)
     center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#121212' },
 });
